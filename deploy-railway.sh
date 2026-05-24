@@ -216,11 +216,8 @@ echo -e "\n[4/5] Adding frontend service (GitHub: santoshdj/SushruthaSetu)..."
 FRONTEND_ADD_OUT=$(railway add --repo santoshdj/SushruthaSetu --service frontend --json 2>/dev/null || echo "{}")
 FRONTEND_SERVICE_ID=$(printf '%s' "$FRONTEND_ADD_OUT" | py -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || true)
 echo "  Service ID: ${FRONTEND_SERVICE_ID:-unknown}"
-if [[ -n "$FRONTEND_SERVICE_ID" && -n "$ENV_ID" ]]; then
-  set_root_dir "$FRONTEND_SERVICE_ID" "$ENV_ID" "frontend" "frontend"
-else
-  echo -e "  ${YELLOW}Could not auto-set root directory — set manually: Settings → Source → Root Directory = frontend${NC}"
-fi
+# Frontend builds from repo root (dockerfilePath = frontend/Dockerfile in railway.toml)
+# so rootDirectory must NOT be set for the frontend service.
 
 # [5] Set frontend Clerk key
 echo -e "\n[5/5] Setting frontend Clerk publishable key..."

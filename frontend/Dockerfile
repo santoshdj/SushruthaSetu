@@ -1,8 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json .
+# Copy manifests first for layer-cache efficiency
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install
-COPY . .
+COPY frontend/ .
 # These are baked into the JS bundle at build time by Vite.
 # Railway must supply them as Build Variables on the frontend service.
 ARG VITE_CLERK_PUBLISHABLE_KEY
@@ -16,6 +17,6 @@ FROM nginx:alpine
 RUN apk add --no-cache gettext
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Store as a template; entrypoint substitutes $PORT before nginx starts
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf.template
 # Railway injects $PORT; fall back to 80 for local docker-compose
 CMD ["/bin/sh", "-c", "export PORT=${PORT:-80} && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
