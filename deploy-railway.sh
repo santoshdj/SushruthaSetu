@@ -114,7 +114,7 @@ cd "$SCRIPT_DIR"
 
 # [1] Create project
 echo -e "\n[1/5] Creating Railway project 'SushruthaSetu'..."
-PROJECT_ID=$(railway init --name SushruthaSetu --json 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+PROJECT_ID=$(railway init --name SushruthaSetu --json 2>&1 | py -c "import sys,json; print(json.load(sys.stdin)['id'])")
 echo "  Project ID: ${PROJECT_ID}"
 
 # [2] Add backend service linked to GitHub
