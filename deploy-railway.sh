@@ -50,6 +50,28 @@ set_var() {
   printf '%s' "$value" | railway variable set "$key" --stdin --service "$service" --skip-deploys --json > /dev/null
 }
 
+set_root_dir() {
+  local service_id="$1" env_id="$2" root_dir="$3" label="$4"
+  echo "  Setting root directory '${root_dir}' on '${label}'..."
+  local payload
+  payload=$(py -c "
+import json, sys
+print(json.dumps({'query': 'mutation serviceInstanceUpdate(\$serviceId: String!, \$environmentId: String!, \$input: ServiceInstanceUpdateInput!) { serviceInstanceUpdate(serviceId: \$serviceId, environmentId: \$environmentId, input: \$input) }','variables': {'serviceId': sys.argv[1], 'environmentId': sys.argv[2], 'input': {'rootDirectory': sys.argv[3]}}}))
+" "$service_id" "$env_id" "$root_dir" 2>/dev/null)
+  local resp
+  resp=$(curl --silent --request POST \
+    --url https://backboard.railway.com/graphql/v2 \
+    --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data "$payload")
+  if printf '%s' "$resp" | grep -qi '"errors"'; then
+    echo -e "  ${YELLOW}Warning: could not auto-set root directory: ${resp}${NC}"
+    echo "  → Set it manually: Dashboard → ${label} service → Settings → Source → Root Directory = ${root_dir}"
+  else
+    echo -e "  ${GREEN}Root directory set to '${root_dir}' ✓${NC}"
+  fi
+}
+
 # ── Preflight ─────────────────────────────────────────────────────────────────
 if [[ -z "${RAILWAY_API_TOKEN:-}" ]]; then
   echo -e "${RED}Error: RAILWAY_API_TOKEN is not set.${NC}"
@@ -154,11 +176,31 @@ PROJECT_ID=$(printf '%s' "$INIT_OUT" \
   | py -c "import sys,json; data=sys.stdin.read(); lines=[l for l in data.splitlines() if l.strip().startswith('{')]; print(json.loads(lines[-1])['id'])")
 echo "  Project ID: ${PROJECT_ID}"
 
+# Get the production environment ID for this project (needed by serviceInstanceUpdate)
+ENV_ID=$(curl --silent --request POST \
+  --url https://backboard.railway.com/graphql/v2 \
+  --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+  --header "Content-Type: application/json" \
+  --data "{\"query\":\"query { project(id: \\\"${PROJECT_ID}\\\") { environments { edges { node { id name } } } } }\"}" \
+  | py -c "
+import sys, json
+d = json.load(sys.stdin)
+envs = d['data']['project']['environments']['edges']
+prod = next((e['node']['id'] for e in envs if e['node']['name'].lower()=='production'), None)
+print(prod or envs[0]['node']['id'])
+" 2>/dev/null)
+echo "  Environment ID: ${ENV_ID}"
+
 # [2] Add backend service linked to GitHub
 echo -e "\n[2/5] Adding backend service (GitHub: santoshdj/SushruthaSetu)..."
-railway add --repo santoshdj/SushruthaSetu --service backend --json \
-  | py -c "import sys,json; d=json.load(sys.stdin); print('  Service ID:', d.get('id','(created)'))" \
-  || echo "  Backend service created."
+BACKEND_ADD_OUT=$(railway add --repo santoshdj/SushruthaSetu --service backend --json 2>/dev/null || echo "{}")
+BACKEND_SERVICE_ID=$(printf '%s' "$BACKEND_ADD_OUT" | py -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || true)
+echo "  Service ID: ${BACKEND_SERVICE_ID:-unknown}"
+if [[ -n "$BACKEND_SERVICE_ID" && -n "$ENV_ID" ]]; then
+  set_root_dir "$BACKEND_SERVICE_ID" "$ENV_ID" "backend" "backend"
+else
+  echo -e "  ${YELLOW}Could not auto-set root directory — set manually: Settings → Source → Root Directory = backend${NC}"
+fi
 
 # [3] Set backend variables
 echo -e "\n[3/5] Setting backend environment variables..."
@@ -171,9 +213,14 @@ echo "  All backend vars set. (ALLOWED_ORIGINS will be set in Phase 2)"
 
 # [4] Add frontend service linked to GitHub
 echo -e "\n[4/5] Adding frontend service (GitHub: santoshdj/SushruthaSetu)..."
-railway add --repo santoshdj/SushruthaSetu --service frontend --json \
-  | py -c "import sys,json; d=json.load(sys.stdin); print('  Service ID:', d.get('id','(created)'))" \
-  || echo "  Frontend service created."
+FRONTEND_ADD_OUT=$(railway add --repo santoshdj/SushruthaSetu --service frontend --json 2>/dev/null || echo "{}")
+FRONTEND_SERVICE_ID=$(printf '%s' "$FRONTEND_ADD_OUT" | py -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || true)
+echo "  Service ID: ${FRONTEND_SERVICE_ID:-unknown}"
+if [[ -n "$FRONTEND_SERVICE_ID" && -n "$ENV_ID" ]]; then
+  set_root_dir "$FRONTEND_SERVICE_ID" "$ENV_ID" "frontend" "frontend"
+else
+  echo -e "  ${YELLOW}Could not auto-set root directory — set manually: Settings → Source → Root Directory = frontend${NC}"
+fi
 
 # [5] Set frontend Clerk key
 echo -e "\n[5/5] Setting frontend Clerk publishable key..."
@@ -184,14 +231,13 @@ echo -e "\n${GREEN}=== Phase 1 complete ===${NC}\n"
 echo -e "${YELLOW}ACTION REQUIRED — Do these steps in the Railway dashboard:${NC}"
 echo "  https://railway.app/project/${PROJECT_ID}"
 echo ""
-echo "  Backend service:"
-echo "    Settings -> Source -> Root Directory  =>  /backend"
-echo "    Then click Deploy"
+echo "  Root directories were set automatically (backend → backend, frontend → frontend)."
+echo "  If the yellow warning appeared above, set them manually:"
+echo "    Service → Settings → Source → Root Directory"
 echo ""
 echo "  Frontend service:"
-echo "    Settings -> Source -> Root Directory  =>  /frontend"
-echo "    Variables tab -> enable 'Build Variables' toggle for VITE_CLERK_PUBLISHABLE_KEY"
-echo "    Then click Deploy"
+echo "    Variables tab → enable 'Build Variables' toggle for VITE_CLERK_PUBLISHABLE_KEY"
+echo "    Then click Deploy (backend will deploy automatically)"
 echo ""
 echo -e "${CYAN}Once both services are healthy and you have both URLs, run Phase 2:${NC}"
 echo "  bash deploy-railway.sh --phase2 \\"
