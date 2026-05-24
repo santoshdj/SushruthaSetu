@@ -114,13 +114,20 @@ cd "$SCRIPT_DIR"
 
 # [1] Create project
 echo -e "\n[1/5] Creating Railway project 'SushruthaSetu'..."
-PROJECT_ID=$(railway init --name SushruthaSetu --json 2>&1 | py -c "import sys,json; print(json.load(sys.stdin)['id'])")
+INIT_OUT=$(railway init --name SushruthaSetu --json)   # stderr stays on terminal
+if [[ -z "$INIT_OUT" ]]; then
+  echo -e "${RED}Error: 'railway init' returned no output. Check the error above (likely auth or network).${NC}"
+  exit 1
+fi
+PROJECT_ID=$(printf '%s' "$INIT_OUT" \
+  | py -c "import sys,json; data=sys.stdin.read(); lines=[l for l in data.splitlines() if l.strip().startswith('{')]; print(json.loads(lines[-1])['id'])")
 echo "  Project ID: ${PROJECT_ID}"
 
 # [2] Add backend service linked to GitHub
 echo -e "\n[2/5] Adding backend service (GitHub: santoshdj/SushruthaSetu)..."
-railway add --repo santoshdj/SushruthaSetu --service backend --json > /dev/null 2>&1
-echo "  Backend service created."
+railway add --repo santoshdj/SushruthaSetu --service backend --json \
+  | py -c "import sys,json; d=json.load(sys.stdin); print('  Service ID:', d.get('id','(created)'))" \
+  || echo "  Backend service created."
 
 # [3] Set backend variables
 echo -e "\n[3/5] Setting backend environment variables..."
@@ -133,8 +140,9 @@ echo "  All backend vars set. (ALLOWED_ORIGINS will be set in Phase 2)"
 
 # [4] Add frontend service linked to GitHub
 echo -e "\n[4/5] Adding frontend service (GitHub: santoshdj/SushruthaSetu)..."
-railway add --repo santoshdj/SushruthaSetu --service frontend --json > /dev/null 2>&1
-echo "  Frontend service created."
+railway add --repo santoshdj/SushruthaSetu --service frontend --json \
+  | py -c "import sys,json; d=json.load(sys.stdin); print('  Service ID:', d.get('id','(created)'))" \
+  || echo "  Frontend service created."
 
 # [5] Set frontend Clerk key
 echo -e "\n[5/5] Setting frontend Clerk publishable key..."
