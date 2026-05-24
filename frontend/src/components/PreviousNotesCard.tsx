@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetchWithAuth } from '@/lib/api'
 
 interface Note {

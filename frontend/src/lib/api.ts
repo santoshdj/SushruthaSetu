@@ -1,5 +1,3 @@
-import { useAuth } from '@clerk/clerk-react'
-
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
