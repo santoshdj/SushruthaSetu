@@ -66,6 +66,10 @@ FRONTEND_ENV="${SCRIPT_DIR}/frontend/.env.local"
 [[ -f "$BACKEND_ENV"  ]] || { echo -e "${RED}Error: backend/.env not found${NC}";        exit 1; }
 [[ -f "$FRONTEND_ENV" ]] || { echo -e "${RED}Error: frontend/.env.local not found${NC}"; exit 1; }
 
+# Unset RAILWAY_TOKEN so the CLI doesn't pick up a stale project-scoped token
+# RAILWAY_API_TOKEN (account-scoped) is what railway init / railway add require
+unset RAILWAY_TOKEN
+
 # Verify token against the Railway GraphQL API before doing anything
 echo "Verifying RAILWAY_API_TOKEN..."
 GQL_RESPONSE=$(curl --silent --request POST \
@@ -73,10 +77,18 @@ GQL_RESPONSE=$(curl --silent --request POST \
   --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
   --header "Content-Type: application/json" \
   --data '{"query":"query { me { name email } }"}')
-GQL_NAME=$(printf '%s' "$GQL_RESPONSE" | py -c "import sys,json; d=json.load(sys.stdin); print(d['data']['me']['name'])" 2>/dev/null || true)
-if [[ -z "$GQL_NAME" ]]; then
-  echo -e "${RED}Token verification failed. Raw response:${NC}"
-  printf '%s\n' "$GQL_RESPONSE"
+GQL_NAME=$(printf '%s' "$GQL_RESPONSE" | py -c "
+import sys, json
+d = json.load(sys.stdin)
+if d.get('errors'):
+    raise SystemExit(d['errors'][0]['message'])
+name = (d.get('data') or {}).get('me', {}).get('name') or ''
+email = (d.get('data') or {}).get('me', {}).get('email') or ''
+print(f'{name} ({email})' if name or email else 'unknown')
+" 2>&1)
+if [[ "$GQL_NAME" == unknown* ]] || [[ -z "$GQL_NAME" ]] || printf '%s' "$GQL_NAME" | grep -qi 'error\|unauthori\|invalid'; then
+  echo -e "${RED}Token verification failed:${NC} ${GQL_NAME}"
+  echo "Raw response: $GQL_RESPONSE"
   echo ""
   echo "Ensure RAILWAY_API_TOKEN is an Account-scoped token from railway.app/account/tokens"
   exit 1
