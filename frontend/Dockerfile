@@ -18,5 +18,6 @@ RUN apk add --no-cache gettext
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Store as a template; entrypoint substitutes $PORT before nginx starts
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
-# Railway injects $PORT; fall back to 80 for local docker-compose
-CMD ["/bin/sh", "-c", "export PORT=${PORT:-80} && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# Railway injects $PORT; default 8080 avoids privileged-port issues
+EXPOSE 8080
+CMD ["/bin/sh", "-c", "export PORT=${PORT:-8080} && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
