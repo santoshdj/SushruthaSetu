@@ -2,8 +2,9 @@
 # Deploys SushruthaSetu (FastAPI backend + Vite frontend) to Railway.
 #
 # BEFORE RUNNING:
-#   Set your Railway token in the terminal (do NOT paste it in chat):
-#     $env:RAILWAY_TOKEN = "your-token-from-railway-dashboard"
+#   Set your Railway ACCOUNT token in the terminal (do NOT paste it in chat):
+#     $env:RAILWAY_API_TOKEN = "your-account-token-from-railway-dashboard"
+#   Get it from: railway.app/account/tokens  (scope = Account, not a project)
 #
 # USAGE:
 #   Phase 1 (create project, services, variables):
@@ -39,11 +40,12 @@ function Set-RailwayVar($key, $value, $service) {
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 
-if (-not $env:RAILWAY_TOKEN) {
+if (-not $env:RAILWAY_API_TOKEN) {
     Write-Error @"
-RAILWAY_TOKEN is not set.
+RAILWAY_API_TOKEN is not set.
 In this terminal, run:
-  `$env:RAILWAY_TOKEN = "your-token-here"
+  `$env:RAILWAY_API_TOKEN = "your-account-token-here"
+(Account-scoped token from railway.app/account/tokens)
 Then re-run this script.
 "@
     exit 1

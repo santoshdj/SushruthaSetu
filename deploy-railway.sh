@@ -3,8 +3,9 @@
 # Deploys SushruthaSetu (FastAPI backend + Vite frontend) to Railway.
 #
 # BEFORE RUNNING:
-#   Export your Railway token in this terminal (do NOT paste it in chat):
-#     export RAILWAY_TOKEN="your-token-from-railway-dashboard"
+#   Export your Railway ACCOUNT token in this terminal (do NOT paste it in chat):
+#     export RAILWAY_API_TOKEN="your-account-token-from-railway-dashboard"
+#   Get it from: railway.app/account/tokens  (scope = Account, not a project)
 #
 # USAGE:
 #   Phase 1 — create project, services, set variables:
@@ -50,10 +51,11 @@ set_var() {
 }
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
-if [[ -z "${RAILWAY_TOKEN:-}" ]]; then
-  echo -e "${RED}Error: RAILWAY_TOKEN is not set.${NC}"
+if [[ -z "${RAILWAY_API_TOKEN:-}" ]]; then
+  echo -e "${RED}Error: RAILWAY_API_TOKEN is not set.${NC}"
   echo "In this terminal, run:"
-  echo "  export RAILWAY_TOKEN=\"your-token-here\""
+  echo "  export RAILWAY_API_TOKEN=\"your-account-token-here\""
+  echo "(Account-scoped token from railway.app/account/tokens)"
   echo "Then re-run this script."
   exit 1
 fi
