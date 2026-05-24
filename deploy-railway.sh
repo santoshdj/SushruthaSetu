@@ -66,6 +66,23 @@ FRONTEND_ENV="${SCRIPT_DIR}/frontend/.env.local"
 [[ -f "$BACKEND_ENV"  ]] || { echo -e "${RED}Error: backend/.env not found${NC}";        exit 1; }
 [[ -f "$FRONTEND_ENV" ]] || { echo -e "${RED}Error: frontend/.env.local not found${NC}"; exit 1; }
 
+# Verify token against the Railway GraphQL API before doing anything
+echo "Verifying RAILWAY_API_TOKEN..."
+GQL_RESPONSE=$(curl --silent --request POST \
+  --url https://backboard.railway.com/graphql/v2 \
+  --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+  --header "Content-Type: application/json" \
+  --data '{"query":"query { me { name email } }"}')
+GQL_NAME=$(printf '%s' "$GQL_RESPONSE" | py -c "import sys,json; d=json.load(sys.stdin); print(d['data']['me']['name'])" 2>/dev/null || true)
+if [[ -z "$GQL_NAME" ]]; then
+  echo -e "${RED}Token verification failed. Raw response:${NC}"
+  printf '%s\n' "$GQL_RESPONSE"
+  echo ""
+  echo "Ensure RAILWAY_API_TOKEN is an Account-scoped token from railway.app/account/tokens"
+  exit 1
+fi
+echo -e "  ${GREEN}Token valid — logged in as: ${GQL_NAME}${NC}"
+
 # ── Phase 2 — wire URLs ───────────────────────────────────────────────────────
 if $PHASE2; then
   if [[ -z "$BACKEND_URL" || -z "$FRONTEND_URL" ]]; then
