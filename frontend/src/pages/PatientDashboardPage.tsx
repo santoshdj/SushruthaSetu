@@ -159,62 +159,62 @@ export function PatientDashboardPage() {
             </div>
           </div>
 
-        {/* Latest Vitals — nurse check-in */}
-        {summaryQuery.isLoading ? (
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden border-l-4 border-l-pink-400 px-5 py-4">
-            <div className="h-3 bg-gray-100 rounded animate-pulse w-1/2 mb-3" />
-            <div className="grid grid-cols-2 gap-2">
-              {[1,2,3,4].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
-            </div>
-          </div>
-        ) : summary?.vitals?.length > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden border-l-4 border-l-pink-400">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Latest Vitals</h2>
-              <button
-                onClick={() => navigate(`/patients/${patientId}/vitals`)}
-                className="text-xs text-blue-500 hover:underline"
-              >
-                View history →
-              </button>
-            </div>
-            <div className="px-5 py-4">
-              <div className="grid grid-cols-2 gap-2">
-                {summary.vitals.map((v: any, i: number) => {
-                  const rr = v.reference_range
-                  const isHigh = rr?.high != null && v.value > rr.high
-                  const isLow  = rr?.low  != null && v.value < rr.low
-                  const statusColor = isHigh || isLow ? 'text-red-600' : rr ? 'text-green-600' : 'text-gray-700'
-                  const badge = isHigh ? (
-                    <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase">HIGH</span>
-                  ) : isLow ? (
-                    <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase">LOW</span>
-                  ) : rr ? (
-                    <span className="text-[10px] text-green-600">✓</span>
-                  ) : null
-                  return (
-                    <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide truncate mb-0.5">{v.code}</p>
-                      <p className={`text-base font-semibold leading-tight ${statusColor}`}>
-                        {v.value} <span className="text-xs font-normal text-gray-400">{v.unit}</span>
-                      </p>
-                      <div className="mt-0.5">{badge}</div>
-                    </div>
-                  )
-                })}
-              </div>
-              {summary.vitals[0]?.date && (
-                <p className="text-[10px] text-gray-400 mt-3">
-                  Recorded {summary.vitals[0].date.slice(0, 10)}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
         </div>
         {/* ── Right column — icons + inline care gaps + visit note ─── */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
+
+          {/* Latest Vitals — nurse check-in */}
+          {summaryQuery.isLoading ? (
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden border-l-4 border-l-pink-400 px-5 py-4">
+              <div className="h-3 bg-gray-100 rounded animate-pulse w-1/3 mb-3" />
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                {[1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-gray-100 rounded animate-pulse" />)}
+              </div>
+            </div>
+          ) : summary?.vitals?.length > 0 && (
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden border-l-4 border-l-pink-400">
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wider">Latest Vitals</h2>
+                <div className="flex items-center gap-3">
+                  {summary.vitals[0]?.date && (
+                    <span className="text-[11px] text-gray-400">Recorded {summary.vitals[0].date.slice(0, 10)}</span>
+                  )}
+                  <button
+                    onClick={() => navigate(`/patients/${patientId}/vitals`)}
+                    className="text-xs text-blue-500 hover:underline"
+                  >
+                    View history →
+                  </button>
+                </div>
+              </div>
+              <div className="px-5 py-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {summary.vitals.map((v: any, i: number) => {
+                    const rr = v.reference_range
+                    const isHigh = rr?.high != null && v.value > rr.high
+                    const isLow  = rr?.low  != null && v.value < rr.low
+                    const statusColor = isHigh || isLow ? 'text-red-600' : rr ? 'text-green-600' : 'text-gray-700'
+                    const badge = isHigh ? (
+                      <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1 py-0.5 rounded uppercase">HIGH</span>
+                    ) : isLow ? (
+                      <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1 py-0.5 rounded uppercase">LOW</span>
+                    ) : rr ? (
+                      <span className="text-[10px] text-green-600">✓</span>
+                    ) : null
+                    return (
+                      <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wide truncate mb-0.5">{v.code}</p>
+                        <p className={`text-sm font-semibold leading-tight ${statusColor}`}>
+                          {v.value} <span className="text-xs font-normal text-gray-400">{v.unit}</span>
+                        </p>
+                        <div className="mt-0.5">{badge}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Navigation icon grid */}
           <div>
