@@ -22,12 +22,12 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+    <BrowserRouter>
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+        <QueryClientProvider client={queryClient}>
           <App />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ClerkProvider>
+        </QueryClientProvider>
+      </ClerkProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 )
