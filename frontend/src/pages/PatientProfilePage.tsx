@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { apiFetchWithAuth } from '@/lib/api'
 import { PatientPageLayout } from '@/components/PatientPageLayout'
+import { formatDOB } from '@/lib/utils'
 
 export function PatientProfilePage() {
   const { patientId } = useParams<{ patientId: string }>()
@@ -26,7 +27,7 @@ export function PatientProfilePage() {
     { label: 'Last Name', value: p.last_name },
     { label: 'Prefix', value: p.prefix },
     { label: 'Gender', value: p.gender },
-    { label: 'Date of Birth', value: p.birth_date },
+    { label: 'Date of Birth', value: p.birth_date ? formatDOB(p.birth_date) : null },
     { label: 'Phone', value: p.phone },
     {
       label: 'Address',

@@ -19,8 +19,46 @@ def list_patients(
     return patient_service.list_patients(name=name, page_token=page_token)
 
 
+@router.get("/{patient_id}", response_model=PatientResponse)
+def get_patient(
+    patient_id: str,
+    _current_user: Annotated[dict, Depends(get_current_user)] = None,
+) -> PatientResponse:
+    return patient_service.get_patient(patient_id)
+
+
 @router.post("", response_model=PatientResponse, status_code=201)
 def create_patient(
+    data: PatientCreate,
+    current_user: Annotated[dict, Depends(require_admin)] = None,
+) -> PatientResponse:
+    result = patient_service.create_patient(data)
+    patient_name = f"{result.first_name} {result.last_name}".strip() or None
+    post_audit_event(
+        "patient-created",
+        user_id=current_user.get("sub", "unknown"),
+        patient_id=result.id,
+        patient_name=patient_name,
+    )
+    return result
+
+
+@router.put("/{patient_id}", response_model=PatientResponse)
+def update_patient(
+    patient_id: str,
+    data: PatientUpdate,
+    current_user: Annotated[dict, Depends(require_admin)] = None,
+) -> PatientResponse:
+    result = patient_service.update_patient(patient_id, data)
+    patient_name = f"{result.first_name} {result.last_name}".strip() or None
+    post_audit_event(
+        "patient-updated",
+        user_id=current_user.get("sub", "unknown"),
+        patient_id=patient_id,
+        patient_name=patient_name,
+    )
+    return result
+
     data: PatientCreate,
     current_user: Annotated[dict, Depends(require_admin)] = None,
 ) -> PatientResponse:

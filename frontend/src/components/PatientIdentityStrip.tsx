@@ -1,6 +1,7 @@
 import { useAuth } from '@clerk/clerk-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetchWithAuth } from '@/lib/api'
+import { formatDOB } from '@/lib/utils'
 
 function calcAge(birthDate: string): number {
   const today = new Date()
@@ -34,7 +35,7 @@ export function PatientIdentityStrip({ patientId }: { patientId: string }) {
   const pills = [
     age != null ? `Age ${age}` : null,
     p.gender,
-    p.birth_date,
+    p.birth_date ? formatDOB(p.birth_date) : null,
     p.ethnicity,
   ].filter(Boolean) as string[]
 

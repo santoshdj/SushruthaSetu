@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRole } from '@/hooks/useRole'
 import { apiFetchWithAuth } from '@/lib/api'
 import { PatientFormModal } from '@/components/PatientFormModal'
+import { formatDOB } from '@/lib/utils'
 
 type Patient = {
   id: string
@@ -14,6 +15,7 @@ type Patient = {
   gender: string
   birth_date: string
 }
+
 
 type PatientListResponse = {
   patients: Patient[]
@@ -30,7 +32,7 @@ export function PatientsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [pageToken, setPageToken] = useState<string | null>(null)
-  const [modalState, setModalState] = useState<{ open: boolean; patient?: Patient }>({ open: false })
+  const [modalState, setModalState] = useState<{ open: boolean; patientId?: string }>({ open: false })
 
   // Debounce search
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,11 +116,11 @@ export function PatientsPage() {
                         {[patient.prefix, patient.first_name, patient.last_name].filter(Boolean).join(' ')}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 capitalize">{patient.gender}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{patient.birth_date}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{formatDOB(patient.birth_date)}</td>
                       {role === 'admin' && (
                         <td className="px-6 py-4 text-right">
                           <button
-                            onClick={(e) => { e.stopPropagation(); setModalState({ open: true, patient }) }}
+                            onClick={(e) => { e.stopPropagation(); setModalState({ open: true, patientId: patient.id }) }}
                             className="text-sm text-blue-600 hover:underline"
                           >
                             Edit
@@ -153,7 +155,7 @@ export function PatientsPage() {
 
       <PatientFormModal
         open={modalState.open}
-        patient={modalState.patient}
+        patientId={modalState.patientId}
         onClose={() => setModalState({ open: false })}
         onSuccess={onSaveSuccess}
       />

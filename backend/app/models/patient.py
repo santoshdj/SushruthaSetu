@@ -6,12 +6,33 @@ from typing import Literal
 from pydantic import BaseModel, field_validator
 
 
+class PatientAddress(BaseModel):
+    line: str | None = None
+    city: str | None = None
+    state: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+
+
 class PatientBase(BaseModel):
     first_name: str
     last_name: str
     prefix: str | None = None
     gender: Literal["male", "female", "other", "unknown"]
     birth_date: date
+    # Contact
+    phone: str | None = None
+    address: PatientAddress | None = None
+    # Demographics
+    marital_status: str | None = None
+    multiple_birth: bool | None = None
+    language: str | None = None
+    mothers_maiden_name: str | None = None
+    birth_place: str | None = None
+    # US Core Clinical
+    race: str | None = None
+    ethnicity: str | None = None
+    birth_sex: str | None = None
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -55,6 +76,19 @@ class PatientResponse(BaseModel):
     prefix: str | None = None
     gender: str
     birth_date: str
+    # Contact
+    phone: str | None = None
+    address: PatientAddress | None = None
+    # Demographics
+    marital_status: str | None = None
+    multiple_birth: bool | None = None
+    language: str | None = None
+    mothers_maiden_name: str | None = None
+    birth_place: str | None = None
+    # US Core Clinical
+    race: str | None = None
+    ethnicity: str | None = None
+    birth_sex: str | None = None
 
 
 class PatientListResponse(BaseModel):
