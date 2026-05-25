@@ -124,26 +124,3 @@ describe('PatientFormModal', () => {
     expect(onSuccess).not.toHaveBeenCalled()
   })
 })
-
-  })
-
-  it('does not call onSuccess when the API returns an error', async () => {
-    mockApiFetch.mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ detail: 'Server error' }),
-    } as Response)
-    const user = userEvent.setup()
-    // spy on alert so it doesn't throw in jsdom
-    vi.spyOn(window, 'alert').mockImplementation(() => {})
-
-    render(<PatientFormModal open={true} onClose={onClose} onSuccess={onSuccess} />)
-    await user.type(screen.getByLabelText('First Name *'), 'Alice')
-    await user.type(screen.getByLabelText('Last Name *'), 'Brown')
-    await user.selectOptions(screen.getByLabelText('Gender *'), 'female')
-    fireEvent.change(screen.getByLabelText('Date of Birth *'), { target: { value: '1990-03-22' } })
-
-    await user.click(screen.getByRole('button', { name: 'Create Patient' }))
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Server error'))
-    expect(onSuccess).not.toHaveBeenCalled()
-  })
-})
