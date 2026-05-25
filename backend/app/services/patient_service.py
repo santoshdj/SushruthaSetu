@@ -17,6 +17,8 @@ from app.models.patient import (
 
 logger = logging.getLogger(__name__)
 
+CLINICIAN_TAG_SYSTEM = "patient-mgmt-app/clinician"
+
 _PAGE_SIZE = 20
 
 _RACE_CODES: dict[str, str] = {
@@ -263,13 +265,15 @@ def _apply_form_to_fhir(
     return resource
 
 
-def list_patients(name: str | None = None, page_token: str | None = None) -> PatientListResponse:
+def list_patients(name: str | None = None, page_token: str | None = None, clinician_id: str | None = None) -> PatientListResponse:
     if page_token:
         bundle = fhir_client.fetch_bundle_page(page_token)
     else:
         params: dict[str, Any] = {"_count": _PAGE_SIZE}
         if name:
             params["name"] = name
+        if clinician_id:
+            params["_tag"] = f"{CLINICIAN_TAG_SYSTEM}|{clinician_id}"
         bundle = fhir_client.search_resource("Patient", params)
 
     entries = bundle.get("entry", [])
@@ -295,8 +299,9 @@ def get_patient(patient_id: str) -> PatientResponse:
     return _parse_patient(resource)
 
 
-def create_patient(data: PatientCreate) -> PatientResponse:
+def create_patient(data: PatientCreate, clinician_id: str) -> PatientResponse:
     body = _apply_form_to_fhir(data)
+    body["meta"] = {"tag": [{"system": CLINICIAN_TAG_SYSTEM, "code": clinician_id}]}
     resource = fhir_client.create_resource("Patient", body)
     return _parse_patient(resource)
 

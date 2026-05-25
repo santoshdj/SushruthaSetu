@@ -14,9 +14,11 @@ router = APIRouter(prefix="/patients", tags=["Patients"])
 def list_patients(
     name: str | None = None,
     page_token: str | None = None,
-    _current_user: Annotated[dict, Depends(get_current_user)] = None,
+    current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> PatientListResponse:
-    return patient_service.list_patients(name=name, page_token=page_token)
+    role = (current_user or {}).get("publicMetadata", {}).get("role", "clinician_user")
+    clinician_id = None if role == "clinician_admin" else (current_user or {}).get("sub")
+    return patient_service.list_patients(name=name, page_token=page_token, clinician_id=clinician_id)
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
@@ -32,7 +34,7 @@ def create_patient(
     data: PatientCreate,
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> PatientResponse:
-    result = patient_service.create_patient(data)
+    result = patient_service.create_patient(data, clinician_id=current_user.get("sub", "unknown"))
     patient_name = f"{result.first_name} {result.last_name}".strip() or None
     first = (current_user.get("first_name") or "").strip()
     last = (current_user.get("last_name") or "").strip()

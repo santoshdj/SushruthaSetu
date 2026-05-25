@@ -10,6 +10,8 @@ router = APIRouter(prefix="/schedule", tags=["Schedule"])
 
 @router.get("/today")
 def get_today_schedule(
-    _current_user: Annotated[dict, Depends(get_current_user)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> list[dict]:
-    return schedule_service.get_today_schedule()
+    role = current_user.get("publicMetadata", {}).get("role", "clinician_user")
+    clinician_id = None if role == "clinician_admin" else current_user.get("sub")
+    return schedule_service.get_today_schedule(clinician_id=clinician_id)

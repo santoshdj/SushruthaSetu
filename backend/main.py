@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.routers import schedule, patients, summary, notes, audit
+from app.routers import schedule, patients, summary, notes, audit, admin
 from app.services.audit import post_audit_event
 
 logging.basicConfig(
@@ -33,6 +33,7 @@ app.include_router(patients.router)
 app.include_router(summary.router)
 app.include_router(notes.router)
 app.include_router(audit.router)
+app.include_router(admin.router)
 
 
 def _extract_user_info(request: Request) -> tuple[str, str | None]:

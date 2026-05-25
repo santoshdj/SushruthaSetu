@@ -8,6 +8,7 @@ import logging
 from datetime import date
 
 from app import fhir_client
+from app.services.patient_service import CLINICIAN_TAG_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,16 @@ _MOCK_SCHEDULE = [
 ]
 
 
-def get_today_schedule() -> list[dict]:
+def _get_clinician_patient_ids(clinician_id: str) -> set[str]:
+    """Return the set of FHIR Patient IDs owned by a clinician."""
+    bundle = fhir_client.search_resource(
+        "Patient",
+        {"_tag": f"{CLINICIAN_TAG_SYSTEM}|{clinician_id}", "_elements": "id", "_count": 1000},
+    )
+    return {e["resource"]["id"] for e in bundle.get("entry", []) if "resource" in e}
+
+
+def get_today_schedule(clinician_id: str | None = None) -> list[dict]:
     today = date.today().isoformat()
     try:
         bundle = fhir_client.search_resource(
@@ -30,7 +40,14 @@ def get_today_schedule() -> list[dict]:
         entries = bundle.get("entry", [])
         if not entries:
             logger.info("No FHIR appointments found for %s — using mock schedule", today)
-            return _MOCK_SCHEDULE
+            result = _MOCK_SCHEDULE
+            if clinician_id:
+                try:
+                    owned = _get_clinician_patient_ids(clinician_id)
+                    result = [a for a in result if a["patientId"] in owned]
+                except Exception:
+                    pass
+            return result
 
         appointments = []
         for entry in entries:
@@ -51,7 +68,17 @@ def get_today_schedule() -> list[dict]:
                 "time": time_part,
                 "reason": reason,
             })
+        if clinician_id:
+            owned = _get_clinician_patient_ids(clinician_id)
+            appointments = [a for a in appointments if a["patientId"] in owned]
         return appointments
     except Exception as exc:
         logger.warning("Failed to fetch FHIR appointments (%s) — using mock schedule", exc)
-        return _MOCK_SCHEDULE
+        result = _MOCK_SCHEDULE
+        if clinician_id:
+            try:
+                owned = _get_clinician_patient_ids(clinician_id)
+                result = [a for a in result if a["patientId"] in owned]
+            except Exception:
+                pass
+        return result
