@@ -212,6 +212,7 @@ export function PatientDashboardPage() {
           </div>
         )}
 
+        </div>
         {/* ── Right column — icons + inline care gaps + visit note ─── */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
 
