@@ -65,7 +65,7 @@ def get_current_user(
 def require_admin(
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict:
-    role = current_user.get("publicMetadata", {}).get("role", "clinician")
-    if role != "admin":
+    role = current_user.get("publicMetadata", {}).get("role", "clinician_user")
+    if role != "clinician_admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user

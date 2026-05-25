@@ -1,14 +1,16 @@
 import { Link, useLocation, Outlet } from 'react-router-dom'
 import { UserButton } from '@clerk/clerk-react'
 import { clsx } from 'clsx'
+import { useUserRole } from '@/hooks/useUserRole'
 
 export function NavBar() {
   const { pathname } = useLocation()
+  const role = useUserRole()
 
   const navItems = [
     { label: 'Schedule', to: '/' },
     { label: 'Patients', to: '/patients' },
-    { label: 'Events', to: '/events' },
+    ...(role === 'clinician_admin' ? [{ label: 'Events', to: '/events' }] : []),
   ]
 
   return (
