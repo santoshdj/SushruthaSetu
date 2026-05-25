@@ -28,7 +28,7 @@ export default function App() {
         path="/login"
         element={
           <div className="flex min-h-screen items-center justify-center bg-gray-50">
-            <SignIn routing="path" path="/login" fallbackRedirectUrl="/" />
+            <SignIn fallbackRedirectUrl="/" />
           </div>
         }
       />
