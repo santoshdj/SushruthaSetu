@@ -59,19 +59,6 @@ def update_patient(
     )
     return result
 
-    data: PatientCreate,
-    current_user: Annotated[dict, Depends(require_admin)] = None,
-) -> PatientResponse:
-    result = patient_service.create_patient(data)
-    patient_name = f"{result.first_name} {result.last_name}".strip() or None
-    post_audit_event(
-        "patient-created",
-        user_id=current_user.get("sub", "unknown"),
-        patient_id=result.id,
-        patient_name=patient_name,
-    )
-    return result
-
 
 @router.put("/{patient_id}", response_model=PatientResponse)
 def update_patient(
