@@ -5,6 +5,7 @@
 **Updated:** 2026-05-16 — Phase 3: Authentication & Role-Based Access Control  
 **Updated:** 2026-05-19 — Phase 4: Visit Notes & Clinical Note History  
 **Updated:** 2026-05-20 — Phase 5: AI Action Recommendations  
+**Updated:** 2026-05-25 — Phase 6: Audit Events & Events Page; permission matrix revised; role values renamed  
 **Status:** Ready for Implementation
 
 ---
@@ -86,9 +87,9 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 53. As a user, I want to remain logged in across page refreshes and browser tab reopens, so that I don't have to log in repeatedly during a work session.
 54. As a user, I want a visible "Sign Out" option in the navigation bar, so that I can explicitly end my session.
 55. As a clinician, I want to see the schedule and patient dashboard with full read access, so that I can perform my clinical prep workflow.
-56. As a clinician, I want the "New Patient" button and "Edit" actions to be hidden from my view, so that the interface is not cluttered with actions I cannot perform.
-57. As an admin, I want full access to all features including creating and editing patients, so that I can manage the patient registry.
-58. As an admin, I want to see the "New Patient" button and "Edit" actions on the Patients page, so that I can perform registration tasks.
+56. As an authenticated user, I want to see the "New Patient" button and "Edit" actions on the Patients page, so that all clinical staff can create and update patient records without needing elevated privileges.
+57. As a clinician_admin, I want exclusive access to the Events Page showing a complete audit trail of all system activity, so that I can monitor access patterns and investigate security concerns.
+58. As a clinician_admin, I want an "Events" navigation link visible only to me in the nav bar, so that the audit log is accessible to administrators without cluttering navigation for clinical staff.
 59. As a user, I want to see a clear "Access Denied" message if I attempt an action I am not authorised to perform, so that I understand why the action failed.
 60. As a developer, I want Clerk publishable key configurable via environment variable, so that the same codebase runs against Clerk's development and production environments without code changes.
 61. As a developer, I want the backend JWT verification to use Clerk's JWKS endpoint configured via environment variable, so that the backend works identically on local, Vercel, and cloud deployments.
@@ -128,6 +129,17 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 90. As a clinician, I want the AI to incorporate my current note, the full patient aggregate (problems, medications, allergies, vitals, labs, care gaps), and up to 5 previous visit notes when generating recommendations, so that suggestions are contextually grounded and avoid repeating what is already ordered or prescribed.
 91. As a clinician, I want the AI recommendations to be generated only when I explicitly trigger them, so that no AI call is made without my deliberate action.
 92. As a developer, I want action recommendations served by a dedicated `POST /patients/{id}/action-recommendations` endpoint that accepts the note text in the request body, so that the pre-visit summary endpoint (which has no note-text input) is not conflated with the action recommendations lifecycle.
+
+### Phase 6: Audit Events & Events Page
+
+93. As a clinician_admin, I want a dedicated Events page at `/events` showing all Audit Events across all patients in reverse-chronological order, so that I can monitor and investigate application activity.
+94. As a clinician_admin, I want audit events displayed with Timestamp, Event Type, User, Patient, and Outcome columns, so that I can quickly read each entry.
+95. As a clinician_admin, I want to filter the Events log by event type (Login, Patient Viewed, Patient Created, Patient Updated, Unauthorized Access Attempt), so that I can narrow my review to specific activity types.
+96. As a clinician_admin, I want to filter the Events log by date range, so that I can scope an audit investigation to a specific time period.
+97. As a clinician_admin, I want Unauthorized Access Attempt events to clearly show the requesting user identity and outcome, so that I can identify potential security incidents.
+98. As a clinician_user, I want to be automatically redirected to the home page when I navigate to `/events`, so that the access boundary is enforced silently without exposing an error page.
+99. As a developer, I want all patient-modifying operations (create, update) and authentication events (login, unauthorized access) to generate Audit Events automatically at the API boundary, so that the audit trail requires no frontend instrumentation.
+100. As a developer, I want Audit Event writes to be fire-and-forget (write failures are logged server-side but never surfaced to the clinician), so that an audit service failure never blocks the primary clinical workflow.
 ---
 
 ## Implementation Decisions
@@ -161,9 +173,10 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 **Phase 3 additions:**
 
 - **Clerk integration (frontend)** — the React app is wrapped in `<ClerkProvider>` using `VITE_CLERK_PUBLISHABLE_KEY`. A `/login` route renders Clerk's embedded `<SignIn />` component. A `<ProtectedRoute>` wrapper component in the router config checks `isSignedIn` from Clerk's `useAuth` hook and redirects unauthenticated users to `/login`. The `/login` route redirects already-signed-in users to `/`.
-- **`useRole()` custom hook (frontend)** — wraps Clerk's `useUser()` hook, reads `user.publicMetadata.role`, and returns a typed value of `"admin" | "clinician"`. All components that conditionally render admin-only UI elements consume this hook.
+- **`useUserRole()` custom hook (frontend)** — wraps Clerk's `useUser()` hook, reads `user.publicMetadata.role`, and returns a typed value of `"clinician_admin" | "clinician_user"`. Consumed by `AdminRoute` (Events Page access gate) and `NavBar` (conditional Events link). All authenticated users can create and edit patients — no role gate on patient write UI.
+- **`AdminRoute` layout component (frontend)** — a React Router layout route that wraps the `/events` route tree. Calls `useUserRole()` and redirects any non-`clinician_admin` user to `/`. The "Events" link in `NavBar` is hidden for `clinician_user` accounts.
 - **JWT auth middleware (backend)** — a FastAPI dependency (`get_current_user`) that extracts the `Authorization: Bearer` header, verifies the JWT signature against Clerk's JWKS endpoint (cached on startup), and returns the decoded claims including the user's role. Applied to all protected endpoints.
-- **`require_admin` dependency (backend)** — a FastAPI dependency that calls `get_current_user` and raises `HTTP 403` if the role claim is not `"admin"`. Applied to `POST /patients` and `PUT /patients/{id}`.
+- **`require_admin` dependency (backend)** — a FastAPI dependency that calls `get_current_user` and raises `HTTP 403` if the role claim is not `"clinician_admin"`. Reserved for admin-only endpoints (Events API). No longer applied to `POST /patients` or `PUT /patients/{id}`.
 
 **Phase 4 additions:**
 
@@ -171,7 +184,8 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 - **Notes router (backend)** — two endpoints:
   - `GET /patients/{patient_id}/notes` — returns an array of note objects (both Clinical and Visit Notes) sorted by date descending.
   - `POST /patients/{patient_id}/notes` — accepts `{ text, encounter_date }`, constructs a `DocumentReference` resource with the app tag, and POSTs it to the FHIR server. Accessible by both `clinician` and `admin` roles.
-- **`PreviousNotesCard` component (frontend)** — collapsible card on the Patient Dashboard. Shows the most recent note by default. A "Show all N notes" toggle expands the full inline list, each entry showing date, source badge, and full text.
+- **`PreviousNotesCard` component (frontend)** — collapsible card on the Patient Dashboard. Shows the most recent note by default. A "Show all N notes" toggle expands the full inline list, each entry showing date, source badge, and full text rendered by `NoteBody`.
+- **`NoteBody` component (frontend)** — pure display component that parses clinical note text line-by-line into structured HTML: `#`/`##`/`###` markdown headings as bold section headers, `:` lines as bold labels, `- / • / *` prefixes as bulleted lists, all other lines as plain paragraphs.
 - **`useSpeechRecognition` hook (frontend)** — encapsulates the browser `window.SpeechRecognition` / `window.webkitSpeechRecognition` API. Exposes `{ isListening, isSupported, toggle }` and fires `onResult(finalText)` and `onInterim(text)` callbacks. Keeps the component that consumes it clean of Web Speech API details.
 - **`VisitNotePanel` component (frontend)** — sticky bottom panel fixed to the viewport. Collapsed bar by default; expands to a textarea with Dictate, Save Note, Discard, and "✨ Suggest next steps" controls. Debounce-saves draft to `localStorage` under `visit-note-draft-{patient_id}`. Restores draft with unsaved-draft banner on mount. Clears draft on save or discard.
 
@@ -180,6 +194,12 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 - **Action Recommendations service (backend)** — accepts `(patient_id, note_text)`. Internally fetches the patient aggregate via the summary service and the 5 most recent notes via the notes service. Builds a structured system prompt and calls Claude (`claude-sonnet-4-5`) requesting JSON output in the `{ category, action, urgency, rationale }` shape. Strips markdown fences before parsing. Returns `{ recommendations: [...] }`.
 - **Action recommendations endpoint (backend)** — `POST /patients/{patient_id}/action-recommendations`, added to the summary router. Accepts `{ note_text: string }`. Delegates to the action recommendations service.
 - **`ActionRecommendationsCard` component (frontend)** — hidden until loading, data, or error state is active. When loading, shows a shimmer skeleton. When populated, groups recommendations by category in the order: Medications → Lab Tests → Referrals → Follow-up → Patient Education. Each recommendation row shows action text, urgency badge (red = critical, orange = urgent, gray = routine), and rationale. Blue-tinted card styling distinguishes it visually from clinical data cards.
+
+**Phase 6 additions:**
+
+- **Audit event service (backend)** — a fire-and-forget service that constructs and POSTs a FHIR R4 `AuditEvent` resource to the FHIR server. Called at API boundaries for five event types: Login, Patient Viewed, Patient Created, Patient Updated, and Unauthorized Access Attempt. Write failures are caught, logged server-side, and never propagated to the caller.
+- **Audit events router (backend)** — `GET /events` proxies a paginated FHIR `AuditEvent` bundle to the frontend. Protected by the `require_admin` dependency; returns HTTP 403 for `clinician_user` tokens.
+- **Events page (frontend)** — a read-only table at `/events` showing all Audit Events in reverse-chronological order, filterable by event type and date range. Columns: Timestamp, Event Type, User, Patient, Outcome.
 
 ### API Contract
 
@@ -195,9 +215,11 @@ POST /patients                    → create new patient
 PUT  /patients/{id}               → update existing patient
 
 GET  /patients/{id}/notes         → list of DocumentReference notes (Clinical + Visit)
-POST /patients/{id}/notes         → create a Visit Note (clinician or admin)
+POST /patients/{id}/notes         → create a Visit Note (any authenticated user)
 
 POST /patients/{id}/action-recommendations  → generate AI action recommendations from note text
+
+GET  /events                      → paginated AuditEvent log (clinician_admin only)
 ```
 
 ### Data Flow
@@ -246,7 +268,7 @@ All environment variables are managed via `.env.local` for local development (gi
 - **Patient registration service** — test that `POST /patients` constructs a valid FHIR `Patient` resource and calls the FHIR client with the correct payload. Test that `PUT /patients/{id}` includes the correct `id` in the resource body. Mock the FHIR client; assert on the outbound resource shape. Cover all validation error cases (future DOB, pre-1900 DOB, missing required fields, invalid gender value).
 - **Patient list service** — test that `GET /patients` correctly passes `name` and `_count` parameters to the FHIR client. Test that pagination tokens are correctly proxied.
 - **JWT auth middleware** — test that a valid JWT passes verification and returns decoded claims. Test that an expired token returns 401. Test that a missing `Authorization` header returns 401. Test that a token with a valid signature but wrong issuer returns 401. Mock the JWKS fetch.
-- **`require_admin` dependency** — test that a JWT with `role: "admin"` passes. Test that a JWT with `role: "clinician"` returns 403. Test that `POST /patients` and `PUT /patients/{id}` return 403 for clinician JWTs.
+- **`require_admin` dependency** — test that a JWT with `role: "clinician_admin"` passes. Test that a JWT with `role: "clinician_user"` returns 403. Test that `GET /events` returns 403 for `clinician_user` JWTs. Confirm that `POST /patients` and `PUT /patients/{id}` return 200 for both `clinician_user` and `clinician_admin` tokens.
 - **Notes service** — test that `GET /patients/{id}/notes` returns a correctly shaped list of note objects, with EHR and "This App" source labels correctly derived from `meta.tag`. Test that `POST /patients/{id}/notes` constructs a valid `DocumentReference` resource body with the expected tag and Base64-encoded content. Mock the FHIR client for both.
 - **Action recommendations service** — test that the prompt passed to Claude includes the note text, the patient aggregate, and the content of previous notes. Test that markdown fences are stripped before JSON parsing. Test that the response is correctly shaped as `{ recommendations: [{category, action, urgency, rationale}] }`. Mock the Anthropic SDK and the summary/notes services.
 - **Action recommendations endpoint** — integration test via `TestClient`: assert `POST /patients/{id}/action-recommendations` with a valid note text returns 200 and a correctly shaped JSON body. Assert that missing or empty `note_text` returns a 422 validation error.
@@ -283,7 +305,7 @@ All environment variables are managed via `.env.local` for local development (gi
 - The pre-visit summary prompt should include structured context from all seven data sections, not just clinical notes, to give Claude sufficient signal for a meaningful summary.
 - Clerk provides separate key sets per environment (development vs. production) in the dashboard. Local dev uses Clerk dev keys; cloud deployments use production keys. No code changes are needed between environments — only env var values differ.
 - The `get_current_user` FastAPI dependency must cache Clerk's JWKS response and refresh it on a TTL basis. For containerized deployments the cache persists in memory; for serverless deployments a short TTL re-fetch on cold start is acceptable.
-- The `useRole()` hook should return a safe default (`"clinician"`) if `publicMetadata.role` is absent, ensuring the app fails closed (read-only) rather than open.
+- The `useUserRole()` hook returns a safe default (`"clinician_user"`) if `publicMetadata.role` is absent, ensuring the app fails closed (no Events Page access) rather than open.
 - The patient form modal is a shared component: the same React component handles both create (blank form) and edit (pre-populated form), differentiated by whether a patient ID is passed as a prop. This keeps validation logic and field definitions in one place.
 - FHIR server-side name search behaviour varies by implementation: HAPI FHIR supports prefix matching on `family` and `given` via the `name` parameter. The backend should document which FHIR search parameter is used so that behaviour differences across servers are not surprising.
 - The `PUT /patients/{id}` endpoint performs a full resource replace. The backend must reconstruct the complete FHIR `Patient` resource (including the `id` field) before sending — it must not send only the changed fields.

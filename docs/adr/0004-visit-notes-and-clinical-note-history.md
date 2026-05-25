@@ -1,6 +1,7 @@
 # ADR 0004: Visit Notes & Clinical Note History
 
 **Date:** 2026-05-19
+**Updated:** 2026-05-25 — Role values aligned with ADR-0003 update (`clinician_user` / `clinician_admin`)
 **Status:** Accepted
 **Deciders:** Product owner (via design interview, 2026-05-19)
 **Extends:** ADR-0001 (dashboard sections), ADR-0003 (permission matrix)
@@ -81,12 +82,12 @@ All decisions were made during a structured design interview on 2026-05-19.
 
 **Decision:** The permission matrix from ADR-0003 is extended:
 
-| Feature | `clinician` | `admin` |
+| Feature | `clinician_user` | `clinician_admin` |
 |---|---|---|
 | View Previous Visit Notes | ✅ | ✅ |
 | Save Visit Note | ✅ | ✅ |
 
-**Rationale:** Saving a Visit Note is a clinical action, not a registration action. ADR-0003's write restriction was explicitly scoped to patient demographic operations. Both clinicians and admin users (who may include nurse practitioners) must be able to save notes. The backend enforces this: `POST /patients/{patient_id}/notes` accepts tokens with either `clinician` or `admin` role.
+**Rationale:** Saving a Visit Note is a clinical action, not a registration action. Both `clinician_user` and `clinician_admin` must be able to save notes. The backend enforces this: `POST /patients/{patient_id}/notes` accepts tokens with either `clinician_user` or `clinician_admin` role.
 
 ---
 

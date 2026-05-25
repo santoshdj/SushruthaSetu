@@ -1,6 +1,7 @@
 # ADR 0003: Authentication and Role-Based Authorisation
 
 **Date:** 2026-05-16  
+**Updated:** 2026-05-25 — Role values renamed (`clinician_user` / `clinician_admin`); patient write permissions opened to all authenticated users; Events Page access control formalised  
 **Status:** Accepted  
 **Deciders:** Product owner (via design interview, 2026-05-16)  
 **Implements:** ADR 0002 Decision 1 consequence ("Role distinction must be enforced when auth is added")
@@ -33,7 +34,7 @@ All decisions in this ADR were made during a structured design interview on 2026
 
 ### 2. Role Assignment: Clerk Public Metadata
 
-**Decision:** Each user is assigned a `role` field in their Clerk `publicMetadata`: either `"admin"` or `"clinician"`. This value is embedded in the JWT issued by Clerk and available in both the React SDK (`user.publicMetadata.role`) and the decoded JWT on the backend. For MVP, users are created manually in the Clerk dashboard — no self-registration.
+**Decision:** Each user is assigned a `role` field in their Clerk `publicMetadata`: either `"clinician_admin"` or `"clinician_user"`. This value is embedded in the JWT issued by Clerk and available in both the React SDK (`user.publicMetadata.role`) and the decoded JWT on the backend. For MVP, users are created manually in the Clerk dashboard — no self-registration.
 
 **Rationale:** Clerk's `publicMetadata` is the simplest mechanism for custom claims that survive across sessions and are accessible on both client and server. It avoids the complexity of Clerk Organizations while meeting the two-role requirement precisely. Manual user creation prevents unauthorised self-registration against a system containing (even synthetic) patient data.
 
@@ -47,16 +48,18 @@ All decisions in this ADR were made during a structured design interview on 2026
 
 **Decision:** The following permissions apply:
 
-| Feature | `clinician` | `admin` |
+| Feature | `clinician_user` | `clinician_admin` |
 |---|---|---|
 | View today's schedule | ✅ | ✅ |
 | View patient dashboard | ✅ | ✅ |
 | View patient list | ✅ | ✅ |
 | Search patients by name | ✅ | ✅ |
-| Create new patient | ❌ | ✅ |
-| Edit patient demographics | ❌ | ✅ |
+| Create new patient | ✅ | ✅ |
+| Edit patient demographics | ✅ | ✅ |
+| Save Visit Note | ✅ | ✅ |
+| View Events Page | ❌ | ✅ |
 
-Clinicians have full read access. Admins have full read and write access. There are no admin-only pages — only admin-only actions. Enforcement is dual-layer: UI (buttons hidden) and API (403 on unauthorised write attempts).
+All authenticated users (both roles) have full patient read and write access. The Events Page is the only role-restricted destination. Enforcement is dual-layer: UI (`AdminRoute` layout redirect + Events link hidden in nav bar) and API (`require_admin` FastAPI dependency on Events-scoped backend endpoints).
 
 ---
 
@@ -82,9 +85,14 @@ Clinicians have full read access. Admins have full read and write access. There 
 
 ### 6. Role-Based UI: `useRole()` Custom Hook
 
-**Decision:** A `useRole()` custom hook wraps Clerk's `useUser()` hook and returns a typed value of `"admin" | "clinician"`. It reads `user.publicMetadata.role` from the Clerk session. If the role is absent or unrecognised, it returns `"clinician"` as a safe default (fail closed — read-only). Components that conditionally render admin-only actions (New Patient button, Edit row action) consume this hook.
+**Decision:** A `useUserRole()` custom hook wraps Clerk's `useUser()` hook and returns a typed value of `"clinician_admin" | "clinician_user"`. It reads `user.publicMetadata.role` from the Clerk session. If the role is absent or unrecognised, it defaults to `"clinician_user"` (fail closed — least privilege). The hook is consumed by:
 
-**Rationale:** A custom hook provides a stable, typed interface that decouples components from Clerk's SDK internals. The fail-closed default ensures that a misconfigured user cannot accidentally gain write access. The hook can be extended later (e.g., to fetch roles from a backend) without changing any consuming component.
+- `AdminRoute` — a layout route component that redirects any non-`clinician_admin` user away from `/events` to `/`
+- `NavBar` — hides the “Events” navigation link for `clinician_user` accounts
+
+Patient write actions (New Patient button, Edit row action) are no longer role-gated in the UI; all authenticated users see and may use these controls.
+
+**Rationale:** A custom hook provides a stable, typed interface that decouples components from Clerk's SDK internals. The fail-closed default (`"clinician_user"`) ensures that a misconfigured user cannot accidentally access the Events Page. Removing role gates from patient write operations simplifies the UI and reflects that patient registration is a general clinical workflow, not an admin-only function.
 
 ---
 
@@ -102,13 +110,25 @@ Clinicians have full read access. Admins have full read and write access. There 
 
 ### 8. Backend Authorisation: `require_admin` Dependency
 
-**Decision:** A `require_admin` FastAPI dependency calls `get_current_user` and raises `HTTPException(status_code=403)` if the user's role claim is not `"admin"`. This dependency is applied to `POST /patients` and `PUT /patients/{id}`. All other existing endpoints use `get_current_user` only (authentication required, any role accepted).
+**Decision:** A `require_admin` FastAPI dependency calls `get_current_user` and raises `HTTPException(status_code=403)` if the user's role claim is not `"clinician_admin"`. As of 2026-05-25 this dependency is **no longer applied to `POST /patients` or `PUT /patients/{id}`** — patient registration operations are accessible to any authenticated user. It is reserved for admin-only endpoints (Events API).
 
-**Rationale:** FastAPI's dependency injection system makes it trivial to apply authorisation at the endpoint level. A dedicated `require_admin` dependency is explicit, testable in isolation, and easy to apply to future write endpoints. It enforces the permission matrix at the API layer regardless of what the frontend renders.
+**Rationale:** Patient write operations are a general clinical workflow; restricting them to admins was overly conservative. The Events Page requires genuine privilege separation — audit log visibility should be limited to administrators. The dependency remains in the codebase and is testable in isolation; its scope is narrower than the original implementation.
 
 ---
 
-### 9. Environment Variables
+### 9. Events Page Access: `AdminRoute` Layout Route
+
+**Decision:** The `/events` route is wrapped in an `AdminRoute` React Router layout route component. It calls `useUserRole()` and redirects any non-`clinician_admin` user silently to `/`. The **Events** navigation link in `NavBar` is additionally hidden for `clinician_user` accounts via the same hook.
+
+**Rationale:** A layout route is a single enforcement point — any future child routes under `/events` are automatically protected without per-route checks. Silent redirect to home avoids revealing the page exists to unauthorised users. The `require_admin` FastAPI dependency on Events API endpoints provides defence-in-depth at the API layer.
+
+**Alternatives rejected:**
+- *Per-page auth check* — duplicates enforcement logic for every route under `/events`.
+- *403 error page as redirect target* — information-disclosing; silent home redirect is preferable.
+
+---
+
+### 10. Environment Variables
 
 **Decision:** The following environment variables are added:
 
@@ -126,7 +146,7 @@ All variables are managed via `.env.local` for local development (gitignored) an
 
 - All existing API endpoints must now require a valid JWT. The `get_current_user` dependency is added to all route handlers. This is a breaking change for any existing API tests — tests must be updated to supply a mock JWT fixture.
 - The frontend must wrap the entire app in `<ClerkProvider>` at the root. This is a one-time change to the app entry point.
-- `POST /patients` and `PUT /patients/{id}` are additionally restricted to `admin` role via the `require_admin` dependency.
-- The `useRole()` hook's fail-closed default (`"clinician"`) means that if a user's `publicMetadata.role` is not set in Clerk, they will have read-only access. All manually created users must have the role field set explicitly in the Clerk dashboard.
+- `POST /patients` and `PUT /patients/{id}` are accessible to any authenticated user — the `require_admin` dependency is no longer applied to these routes. Patient registration and demographic editing is a general clinical workflow available to all staff.
+- The `useUserRole()` hook's fail-closed default (`"clinician_user"`) means that if a user's `publicMetadata.role` is not set in Clerk, they will be treated as Clinician User (no Events Page access). All manually created users must have the role field set explicitly in the Clerk dashboard.
 - When a real production deployment is made, Clerk's production key set must be configured in the platform env vars before go-live. Development keys will not work in production.
 - SMART on FHIR OAuth2 (the FHIR-native auth standard) is not implemented. This app uses Clerk for application-level auth. A future production EHR integration may require SMART on FHIR on top of or instead of Clerk.
