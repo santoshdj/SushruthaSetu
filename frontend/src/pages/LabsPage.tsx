@@ -2,6 +2,17 @@ import { useState, useMemo } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ReferenceArea,
+  ResponsiveContainer,
+} from 'recharts'
 import { apiFetchWithAuth } from '@/lib/api'
 import { PatientPageLayout } from '@/components/PatientPageLayout'
 
@@ -11,6 +22,7 @@ export function LabsPage() {
   const { patientId } = useParams<{ patientId: string }>()
   const { getToken } = useAuth()
   const [expandedTests, setExpandedTests] = useState<Set<string>>(new Set())
+  const [chartGroups, setChartGroups] = useState<Set<string>>(new Set())
 
   const { data: summary, isLoading } = useQuery({
     queryKey: ['patient', patientId, 'summary'],
@@ -49,6 +61,15 @@ export function LabsPage() {
     })
   }
 
+  const toggleChart = (code: string) => {
+    setChartGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
+
   return (
     <PatientPageLayout patientId={patientId!} title="Lab Results" icon="🧪" accentClass="border-l-4 border-l-amber-400">
       {isLoading ? (
@@ -63,7 +84,61 @@ export function LabsPage() {
             const hiddenCount = results.length - VISIBLE_PER_GROUP
             return (
               <div key={code}>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">{code}</h3>
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700 flex-1">{code}</h3>
+                  <button
+                    onClick={() => toggleChart(code)}
+                    className="text-xs text-blue-500 hover:underline"
+                  >
+                    {chartGroups.has(code) ? 'View as table' : 'View as chart'}
+                  </button>
+                </div>
+
+                {chartGroups.has(code) ? (() => {
+                  const chartData = [...results]
+                    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+                    .map(r => ({ date: r.date?.slice(0, 10) ?? '', value: r.value }))
+                  const rr = results[0]?.reference_range ?? null
+                  return (
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                          <Tooltip
+                            contentStyle={{ fontSize: 12 }}
+                            formatter={(value: any) => [`${value} ${results[0]?.unit ?? ''}`, code]}
+                          />
+                          {rr?.low != null && rr?.high != null && (
+                            <ReferenceArea
+                              y1={rr.low}
+                              y2={rr.high}
+                              fill="#fef3c7"
+                              fillOpacity={0.6}
+                              label={{ value: 'Normal range', position: 'insideTopRight', fontSize: 10, fill: '#d97706' }}
+                            />
+                          )}
+                          {rr?.low != null && (
+                            <ReferenceLine y={rr.low} stroke="#fcd34d" strokeDasharray="4 2" />
+                          )}
+                          {rr?.high != null && (
+                            <ReferenceLine y={rr.high} stroke="#fcd34d" strokeDasharray="4 2" />
+                          )}
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#f59e0b"
+                            strokeWidth={2}
+                            dot={{ r: 4, fill: '#f59e0b' }}
+                            activeDot={{ r: 6 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )
+                })() : (
+                  <>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
@@ -110,6 +185,8 @@ export function LabsPage() {
                       ? 'Show fewer'
                       : `Show ${hiddenCount} older result${hiddenCount > 1 ? 's' : ''}`}
                   </button>
+                )}
+                  </>
                 )}
               </div>
             )

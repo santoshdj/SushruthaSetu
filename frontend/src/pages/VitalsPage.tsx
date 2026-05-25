@@ -151,10 +151,7 @@ export function VitalsPage() {
             </table>
           ) : (
             <div className="h-56">
-              {chartData.length < 2 ? (
-                <p className="text-gray-400 text-sm">Not enough data points to chart (need ≥ 2).</p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -188,7 +185,6 @@ export function VitalsPage() {
                     />
                   </LineChart>
                 </ResponsiveContainer>
-              )}
             </div>
           )}
         </>

@@ -63,11 +63,11 @@ A clinician-facing snapshot generated on demand by Claude from the patient aggre
 
 ## Vitals Trend Table
 
-The default view on the Vitals Clinical Detail Page. Displays readings for the selected vital type in **reverse-chronological order** (newest first) with columns: Date, Value, Unit, Reference Range (`low – high`), **Δ Change** (arrow + signed numeric delta vs. the prior reading), and Status badge. Abnormal values (outside reference range) are shown in red. The chart view is available via "View as chart" toggle. Previously the chart was the default.
+The default view on the Vitals Clinical Detail Page. Displays readings for the selected vital type in **reverse-chronological order** (newest first) with columns: Date, Value, Unit, Reference Range (`low – high`), **Δ Change** (arrow + signed numeric delta vs. the prior reading), and Status badge. Abnormal values (outside reference range) are shown in red. The chart view is available via "View as chart" toggle — including for a single data point, where the reading renders as a lone dot against the reference range band. Previously the chart was the default.
 
 ## Lab Results Page
 
-The Labs Clinical Detail Page. Labs are **grouped by test name** and sorted by most recent date (most recently updated test group first). Within each group, only the **2 most recent results** are shown by default. A "Show N older results" link per group expands the full history inline. Abnormal values are shown in red with the reference range in an adjacent column.
+The Labs Clinical Detail Page. Labs are **grouped by test name** and sorted by most recent date (most recently updated test group first). Within each group, only the **2 most recent results** are shown by default. A "Show N older results" link per group expands the full history inline. Abnormal values are shown in red with the reference range in an adjacent column. Each group has a **"View as chart"** toggle that plots the test's values over time as a line chart with a reference range band — including for a single data point.
 
 ## Patient Registration Form
 
