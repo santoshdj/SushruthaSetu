@@ -8,9 +8,11 @@ Provides two FastAPI dependencies:
 
 import time
 import logging
+from datetime import timedelta
 from typing import Annotated
 
 import jwt
+from jwt import PyJWKClient
 import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -22,20 +24,22 @@ logger = logging.getLogger(__name__)
 _jwks_cache: dict | None = None
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL_SECONDS = 3600
+_CLOCK_LEEWAY = timedelta(seconds=60)
 
 bearer_scheme = HTTPBearer()
 
+_jwks_client: PyJWKClient | None = None
 
-def _get_jwks() -> dict:
-    global _jwks_cache, _jwks_fetched_at
+
+def _get_jwks_client() -> PyJWKClient:
+    """Return a cached PyJWKClient, refreshing after TTL."""
+    global _jwks_client, _jwks_fetched_at
     now = time.monotonic()
-    if _jwks_cache is None or (now - _jwks_fetched_at) > _JWKS_TTL_SECONDS:
-        logger.info("Fetching Clerk JWKS from %s", settings.clerk_jwks_url)
-        response = httpx.get(settings.clerk_jwks_url, timeout=10)
-        response.raise_for_status()
-        _jwks_cache = response.json()
+    if _jwks_client is None or (now - _jwks_fetched_at) > _JWKS_TTL_SECONDS:
+        logger.info("Refreshing Clerk JWKS client from %s", settings.clerk_jwks_url)
+        _jwks_client = PyJWKClient(settings.clerk_jwks_url)
         _jwks_fetched_at = now
-    return _jwks_cache
+    return _jwks_client
 
 
 def get_current_user(
@@ -43,13 +47,14 @@ def get_current_user(
 ) -> dict:
     token = credentials.credentials
     try:
-        jwks = _get_jwks()
-        signing_key = jwt.PyJWKClient(settings.clerk_jwks_url).get_signing_key_from_jwt(token)
+        client = _get_jwks_client()
+        signing_key = client.get_signing_key_from_jwt(token)
         payload = jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],
             issuer=settings.clerk_issuer,
+            leeway=_CLOCK_LEEWAY,
             options={"verify_aud": False},
         )
         return payload
