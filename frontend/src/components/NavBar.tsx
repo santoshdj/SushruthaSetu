@@ -17,17 +17,17 @@ export function NavBar() {
     <>
       <nav className="border-b bg-white px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-6">
-          <span className="font-semibold text-gray-800 text-lg">SushruthaSetu</span>
+          <span className="font-bold text-blue-700 text-2xl tracking-tight">SushruthaSetu</span>
           <div className="flex gap-4">
             {navItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 className={clsx(
-                  'text-sm font-medium px-3 py-1.5 rounded-md transition-colors',
+                  'text-base font-semibold px-3 py-1.5 rounded-md transition-colors',
                   pathname === item.to
                     ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    : 'text-gray-900 hover:text-gray-900 hover:bg-gray-100'
                 )}
               >
                 {item.label}
