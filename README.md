@@ -4,11 +4,16 @@ A practitioner-facing clinical dashboard that gives doctors and clinicians a sin
 
 ## Features
 
-- **Daily schedule** — today's appointments with one-click patient drill-down
-- **Patient registry** — search, create, and edit patients backed by a FHIR R4 server
+- **Daily schedule** — today's appointments with one-click patient drill-down; scoped to the logged-in clinician's own patients
+- **Patient registry** — search, create, and edit patients backed by a FHIR R4 server; each clinician sees only their own patients
 - **Clinical dashboard** — problems, medications, allergies, vitals, labs, visit history, and care gap alerts per patient
+- **Latest Vitals panel** — nurse check-in readings displayed at the top of the Patient Hub with HIGH / LOW / ✓ status badges and a "View history" link
+- **Vitals History page** — full trend view per vital type with Δ Change table and reference-range chart
 - **AI pre-visit summary** — Claude-generated narrative from all 7 clinical sections
-- **Role-based access** — clinicians get read-only access; admins can create and edit patients
+- **Visit notes** — dictate or type a note, auto-saved as a draft; saved to FHIR on demand
+- **AI action recommendations** — Claude-generated next-step suggestions (medications, labs, referrals, follow-up, education) triggered from the Visit Note panel
+- **Role-based access** — `clinician_user` sees only their own patients; `clinician_admin` sees all patients and the full audit Events log
+- **Audit trail** — every patient view, create, update, and auth event written as a FHIR `AuditEvent` (fire-and-forget)
 
 ---
 
@@ -117,13 +122,38 @@ User roles are stored in Clerk's **public metadata**. After a user signs up:
 
 1. Go to **Clerk Dashboard → Users**
 2. Select the user
-3. Click **Metadata → Public** and add:
+3. Click **Metadata → Public** and add one of:
 
 ```json
-{ "role": "admin" }
+{ "role": "clinician_admin" }
+```
+```json
+{ "role": "clinician_user" }
 ```
 
-Users without a `role` key default to `clinician` (read-only).
+| Role | Capabilities |
+|---|---|
+| `clinician_user` | Own patients only; schedule scoped to own patients; save visit notes; request AI recommendations |
+| `clinician_admin` | All patients; all schedule entries; Events audit log; admin seed endpoint |
+
+Users without a `role` key default to `clinician_user` behaviour.
+
+---
+
+### 6. Seed demo patients (optional)
+
+If you're using a FHIR server that already has patients (e.g. Synthea-generated data), those patients won't have an owner tag and won't be visible to any `clinician_user`. The seed endpoint distributes them automatically:
+
+```bash
+curl -X POST http://localhost:8000/admin/seed-clinician-patients \
+  -H "Authorization: Bearer <admin_jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"clinician_1_id": "<clerk_user_id_1>", "clinician_2_id": "<clerk_user_id_2>"}'
+```
+
+- Finds all Patient resources without an ownership `meta.tag`
+- Splits them randomly 50/50 between the two Clerk user IDs
+- Already-tagged patients are skipped; safe to re-run
 
 ---
 
@@ -226,28 +256,48 @@ railway up
 Patient-Management-App/
 ├── backend/
 │   ├── app/
-│   │   ├── auth.py              # JWT verification + role enforcement
+│   │   ├── auth.py              # JWT verification, PyJWKClient cache, 60s clock-skew leeway
 │   │   ├── config.py            # Pydantic-settings config
 │   │   ├── fhir_client.py       # FHIR R4 REST client
 │   │   ├── models/              # Pydantic request/response models
-│   │   ├── routers/             # FastAPI route handlers
-│   │   └── services/            # Business logic (schedule, patients, AI summary)
+│   │   ├── routers/
+│   │   │   ├── patients.py      # CRUD; ownership tag stamped on create
+│   │   │   ├── schedule.py      # Today's appointments; scoped by clinician_id
+│   │   │   ├── summary.py       # Patient aggregate, AI summary, vitals history, action recommendations
+│   │   │   ├── notes.py         # DocumentReference read/write
+│   │   │   ├── events.py        # AuditEvent log (admin only)
+│   │   │   └── admin.py         # Seed endpoint (admin only)
+│   │   └── services/
+│   │       ├── patient_service.py    # FHIR Patient CRUD; _tag ownership filter
+│   │       ├── schedule_service.py   # Appointments; filters by owned patient IDs
+│   │       ├── summary_service.py    # Aggregate + vitals (dedup & full-history)
+│   │       ├── notes_service.py      # DocumentReference read/write
+│   │       ├── ai_summary_service.py # Claude pre-visit summary
+│   │       ├── action_rec_service.py # Claude action recommendations
+│   │       └── audit_service.py      # Fire-and-forget AuditEvent writes
 │   ├── tests/
 │   ├── main.py
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # NavBar, ProtectedRoute, PatientFormModal
-│   │   ├── hooks/               # useRole
-│   │   ├── lib/                 # API client, Zod schemas
-│   │   └── pages/               # SchedulePage, PatientsPage, PatientDashboardPage
+│   │   ├── components/          # NavBar, ProtectedRoute, AdminRoute, PatientFormModal, NoteBody
+│   │   ├── hooks/               # useUserRole, useSpeechRecognition
+│   │   ├── lib/                 # API client (apiFetchWithAuth), Zod schemas
+│   │   └── pages/
+│   │       ├── SchedulePage.tsx
+│   │       ├── PatientsPage.tsx
+│   │       ├── PatientDashboardPage.tsx  # Latest Vitals panel + Clinical Detail icon grid
+│   │       ├── VitalsPage.tsx            # Vitals History trend chart + Δ Change table
+│   │       ├── LabsPage.tsx
+│   │       └── EventsPage.tsx            # Audit log (clinician_admin only)
 │   ├── package.json
 │   └── Dockerfile
 ├── docs/
-│   └── adr/                     # Architecture Decision Records
+│   ├── adr/                     # Architecture Decision Records (0001–0007)
+│   └── tech_stack.md            # Full technology stack reference
 ├── specs/
-│   └── PRD.md
+│   └── PRD.md                   # Product Requirements (Phases 1–8)
 └── docker-compose.yml
 ```
 
@@ -260,3 +310,14 @@ Major design decisions are documented in [`docs/adr/`](docs/adr/):
 - [ADR 0001](docs/adr/0001-initial-architecture.md) — Initial architecture (React + FastAPI + FHIR R4)
 - [ADR 0002](docs/adr/0002-patient-registration-and-management.md) — Patient registration and management
 - [ADR 0003](docs/adr/0003-authentication-and-authorisation.md) — Authentication and authorisation (Clerk + PyJWT)
+- [ADR 0004](docs/adr/0004-visit-notes-and-clinical-note-history.md) — Visit notes stored as FHIR `DocumentReference`
+- [ADR 0005](docs/adr/0005-ai-action-recommendations.md) — AI action recommendations (Claude)
+- [ADR 0006](docs/adr/0006-cloud-deployment-architecture.md) — Cloud deployment on Railway
+- [ADR 0007](docs/adr/0007-clinician-patient-ownership-via-fhir-metatag.md) — Clinician-scoped patient visibility via FHIR `meta.tag`
+
+---
+
+## Further Reading
+
+- [Technology Stack](docs/tech_stack.md) — detailed breakdown of every library and service used
+- [Product Requirements](specs/PRD.md) — full user story catalogue and implementation decisions (Phases 1–8)
