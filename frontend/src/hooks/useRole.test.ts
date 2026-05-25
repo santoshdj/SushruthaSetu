@@ -14,14 +14,14 @@ describe('useRole', () => {
     mockUseUser.mockReset()
   })
 
-  it('returns admin when publicMetadata.role is "admin"', () => {
-    mockUseUser.mockReturnValue({ user: { publicMetadata: { role: 'admin' } } } as any)
+  it('returns admin when publicMetadata.role is "clinician_admin"', () => {
+    mockUseUser.mockReturnValue({ user: { publicMetadata: { role: 'clinician_admin' } } } as any)
     const { result } = renderHook(() => useRole())
     expect(result.current).toBe('admin')
   })
 
-  it('returns clinician when role is "clinician"', () => {
-    mockUseUser.mockReturnValue({ user: { publicMetadata: { role: 'clinician' } } } as any)
+  it('returns clinician when role is "clinician_user"', () => {
+    mockUseUser.mockReturnValue({ user: { publicMetadata: { role: 'clinician_user' } } } as any)
     const { result } = renderHook(() => useRole())
     expect(result.current).toBe('clinician')
   })
