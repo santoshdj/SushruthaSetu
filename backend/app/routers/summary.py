@@ -18,11 +18,15 @@ def get_patient_summary(
     summary = summary_service.get_patient_summary(patient_id)
     p = summary.get("patient_profile", {})
     patient_name = f"{p.get('first_name', '')} {p.get('last_name', '')}".strip() or None
+    first = (current_user.get("first_name") or "").strip()
+    last = (current_user.get("last_name") or "").strip()
+    user_name = f"{first} {last}".strip() or None
     post_audit_event(
         "patient-viewed",
         user_id=current_user.get("sub", "unknown"),
         patient_id=patient_id,
         patient_name=patient_name,
+        user_name=user_name,
     )
     return summary
 

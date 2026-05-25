@@ -16,8 +16,31 @@ interface AuditEvent {
   timestamp: string
   event_type: string
   user: string
+  user_name: string | null
   patient: string | null
   outcome: 'Success' | 'Failure'
+}
+
+function exportToCSV(events: AuditEvent[]) {
+  const headers = ['Timestamp', 'Event Type', 'User ID', 'Name', 'Patient', 'Outcome']
+  const rows = events.map(e => [
+    new Date(e.timestamp).toLocaleString(),
+    e.event_type,
+    e.user,
+    e.user_name ?? '',
+    e.patient ?? '',
+    e.outcome,
+  ])
+  const csv = [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `audit-events-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function EventsPage() {
@@ -83,6 +106,14 @@ export function EventsPage() {
         >
           Clear
         </button>
+        {data && data.length > 0 && (
+          <button
+            onClick={() => exportToCSV(data)}
+            className="ml-auto text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-md"
+          >
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -95,7 +126,8 @@ export function EventsPage() {
               <tr className="bg-gray-50 border-b">
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Timestamp</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Event Type</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">User</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">User ID</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Name</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Patient</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Outcome</th>
               </tr>
@@ -103,7 +135,7 @@ export function EventsPage() {
             <tbody className="divide-y">
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                     No events found.
                   </td>
                 </tr>
@@ -115,6 +147,7 @@ export function EventsPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-900 font-medium">{event.event_type}</td>
                   <td className="px-4 py-3 text-gray-600 font-mono text-xs">{event.user}</td>
+                  <td className="px-4 py-3 text-gray-700">{event.user_name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{event.patient ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span

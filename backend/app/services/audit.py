@@ -47,7 +47,14 @@ def _build_fhir_audit_event(
     patient_id: str | None,
     patient_name: str | None,
     outcome: str,
+    user_name: str | None = None,
 ) -> dict:
+    agent: dict = {
+        "who": {"display": user_id},
+        "requestor": True,
+    }
+    if user_name:
+        agent["name"] = user_name
     resource: dict = {
         "resourceType": "AuditEvent",
         "type": {
@@ -65,12 +72,10 @@ def _build_fhir_audit_event(
         "action": _ACTION[event_type],
         "recorded": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "outcome": outcome,
-        "agent": [
-            {
-                "who": {"display": user_id},
-                "requestor": True,
-            }
-        ],
+        "agent": [agent],
+        "source": {
+            "observer": {"display": "patient-management-app"},
+        },
         "source": {
             "observer": {"display": "patient-management-app"},
         },
@@ -113,7 +118,8 @@ def post_audit_event(
     patient_id: str | None = None,
     patient_name: str | None = None,
     outcome: str = "0",
+    user_name: str | None = None,
 ) -> None:
     """Schedule an AuditEvent write in a background daemon thread (fire-and-forget)."""
-    body = _build_fhir_audit_event(event_type, user_id, patient_id, patient_name, outcome)
+    body = _build_fhir_audit_event(event_type, user_id, patient_id, patient_name, outcome, user_name)
     threading.Thread(target=_post_sync, args=(body,), daemon=True).start()

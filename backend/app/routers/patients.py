@@ -34,11 +34,15 @@ def create_patient(
 ) -> PatientResponse:
     result = patient_service.create_patient(data)
     patient_name = f"{result.first_name} {result.last_name}".strip() or None
+    first = (current_user.get("first_name") or "").strip()
+    last = (current_user.get("last_name") or "").strip()
+    user_name = f"{first} {last}".strip() or None
     post_audit_event(
         "patient-created",
         user_id=current_user.get("sub", "unknown"),
         patient_id=result.id,
         patient_name=patient_name,
+        user_name=user_name,
     )
     return result
 
@@ -51,10 +55,14 @@ def update_patient(
 ) -> PatientResponse:
     result = patient_service.update_patient(patient_id, data)
     patient_name = f"{result.first_name} {result.last_name}".strip() or None
+    first = (current_user.get("first_name") or "").strip()
+    last = (current_user.get("last_name") or "").strip()
+    user_name = f"{first} {last}".strip() or None
     post_audit_event(
         "patient-updated",
         user_id=current_user.get("sub", "unknown"),
         patient_id=patient_id,
         patient_name=patient_name,
+        user_name=user_name,
     )
     return result

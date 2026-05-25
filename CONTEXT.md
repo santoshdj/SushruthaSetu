@@ -53,7 +53,7 @@ An **Unauthorized Access Attempt** Audit Event is created whenever the backend r
 
 A global read-only page at `/events` showing all Audit Events across all patients in reverse-chronological order. Filterable by event type and date range. Serves as both an activity log and a security dashboard.
 
-Table columns: **Timestamp** (`AuditEvent.recorded`), **Event Type** (`AuditEvent.subtype[0].display`), **User** (`AuditEvent.agent[0].who.display`, Clerk user ID or "unknown"), **Patient** (`AuditEvent.entity[0].what.display`, blank for Login / Unauthorized events), **Outcome** (`AuditEvent.outcome`, "Success" or "Failure").
+Table columns: **Timestamp** (`AuditEvent.recorded`), **Event Type** (`AuditEvent.subtype[0].display`), **User** (`AuditEvent.agent[0].who.display`, Clerk user ID or "unknown"), **Name** (`AuditEvent.agent[0].name`, human-readable full name captured at write time from the Clerk JWT `first_name`/`last_name` claims; "—" for events written before this feature was added), **Patient** (`AuditEvent.entity[0].what.display`, blank for Login / Unauthorized events), **Outcome** (`AuditEvent.outcome`, "Success" or "Failure"). An **Export CSV** button downloads the currently filtered view as a CSV file (client-side, filename `audit-events-YYYY-MM-DD.csv`).
 
 Access is restricted to **Clinician Admin** users. Clinician User accounts that navigate directly to `/events` are silently redirected to `/` by the `AdminRoute` layout route. The **Events** navigation link is hidden from the nav bar for all Clinician User accounts.
 

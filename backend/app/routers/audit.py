@@ -20,11 +20,13 @@ def _transform(resource: dict) -> dict:
     outcome_raw = resource.get("outcome", "0")
     outcome = "Success" if outcome_raw == "0" else "Failure"
     entity = (resource.get("entity") or [{}])[0].get("what", {})
+    agent = (resource.get("agent") or [{}])[0]
     return {
         "id": resource.get("id"),
         "timestamp": resource.get("recorded"),
         "event_type": (resource.get("subtype") or [{}])[0].get("display", ""),
-        "user": (resource.get("agent") or [{}])[0].get("who", {}).get("display", "unknown"),
+        "user": agent.get("who", {}).get("display", "unknown"),
+        "user_name": agent.get("name") or None,
         "patient": entity.get("display") or None,
         "outcome": outcome,
     }
@@ -35,7 +37,10 @@ def record_login(
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict:
     user_id = current_user.get("sub", "unknown")
-    post_audit_event("login", user_id=user_id, outcome="0")
+    first = (current_user.get("first_name") or "").strip()
+    last = (current_user.get("last_name") or "").strip()
+    user_name = f"{first} {last}".strip() or None
+    post_audit_event("login", user_id=user_id, outcome="0", user_name=user_name)
     return {"status": "recorded"}
 
 
