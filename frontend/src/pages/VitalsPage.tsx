@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import type React from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -48,7 +49,7 @@ export function VitalsPage() {
   }, [vitals])
 
   const [selectedVital, setSelectedVital] = useState<string | null>(null)
-  const [showTable, setShowTable] = useState(false)
+  const [showTable, setShowTable] = useState(true)
 
   const activeVital = selectedVital ?? vitalTypes[0] ?? null
 
@@ -72,7 +73,7 @@ export function VitalsPage() {
             {vitalTypes.map(code => (
               <button
                 key={code}
-                onClick={() => { setSelectedVital(code); setShowTable(false) }}
+                onClick={() => { setSelectedVital(code); setShowTable(true) }}
                 className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
                   code === activeVital
                     ? 'bg-pink-500 text-white border-pink-500'
@@ -136,37 +137,63 @@ export function VitalsPage() {
                 </ResponsiveContainer>
               )}
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                  <th className="pb-2 pr-4">Date</th>
-                  <th className="pb-2 pr-4">Value</th>
-                  <th className="pb-2 pr-4">Unit</th>
-                  <th className="pb-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((v: any, i: number) => {
-                  const s = vitalStatus(v)
-                  return (
-                    <tr key={i} className="border-b border-gray-50">
-                      <td className="py-2 pr-4 text-gray-500">{v.date?.slice(0, 10)}</td>
-                      <td className={`py-2 pr-4 font-medium ${s === 'normal' ? 'text-gray-800' : 'text-red-600'}`}>{v.value}</td>
-                      <td className="py-2 pr-4 text-gray-500">{v.unit}</td>
-                      <td className="py-2">
-                        {s !== 'unknown' && s !== 'normal' && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-semibold uppercase ${
-                            s === 'high' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                          }`}>{s}</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
+          ) : (() => {
+            // Sort newest-first for the trend table
+            const tableSorted = [...filtered].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+            return (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
+                    <th className="pb-2 pr-4">Date</th>
+                    <th className="pb-2 pr-4">Value</th>
+                    <th className="pb-2 pr-4">Unit</th>
+                    <th className="pb-2 pr-4">Ref Range</th>
+                    <th className="pb-2 pr-4">Δ Change</th>
+                    <th className="pb-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableSorted.map((v: any, i: number) => {
+                    const s = vitalStatus(v)
+                    const rr = v.reference_range
+                    const rrText = rr && (rr.low != null || rr.high != null)
+                      ? `${rr.low ?? '?'} – ${rr.high ?? '?'}`
+                      : '—'
+                    const prevVal = tableSorted[i + 1]?.value
+                    let deltaNode: React.ReactNode = <span className="text-gray-300">—</span>
+                    if (prevVal != null && v.value != null) {
+                      const delta = Number(v.value) - Number(prevVal)
+                      const sign = delta > 0 ? '+' : ''
+                      const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '='
+                      deltaNode = (
+                        <span className="text-gray-500">
+                          {arrow} {sign}{delta.toFixed(1)}
+                        </span>
+                      )
+                    }
+                    return (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="py-2 pr-4 text-gray-500">{v.date?.slice(0, 10)}</td>
+                        <td className={`py-2 pr-4 font-medium ${s !== 'normal' && s !== 'unknown' ? 'text-red-600' : 'text-gray-800'}`}>
+                          {v.value}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-500">{v.unit}</td>
+                        <td className="py-2 pr-4 text-gray-400 text-xs">{rrText}</td>
+                        <td className="py-2 pr-4 text-xs font-medium">{deltaNode}</td>
+                        <td className="py-2">
+                          {s !== 'unknown' && s !== 'normal' && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-semibold uppercase ${
+                              s === 'high' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                            }`}>{s}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )
+          })()}
         </>
       )}
     </PatientPageLayout>
