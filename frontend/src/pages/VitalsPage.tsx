@@ -29,17 +29,17 @@ export function VitalsPage() {
   const { patientId } = useParams<{ patientId: string }>()
   const { getToken } = useAuth()
 
-  const { data: summary, isLoading } = useQuery({
-    queryKey: ['patient', patientId, 'summary'],
+  const { data: vitalsHistory, isLoading } = useQuery({
+    queryKey: ['patient', patientId, 'vitals-history'],
     queryFn: async () => {
-      const res = await apiFetchWithAuth(`/patients/${patientId}/summary`, getToken)
+      const res = await apiFetchWithAuth(`/patients/${patientId}/vitals/history`, getToken)
       if (!res.ok) throw new Error('Failed')
-      return res.json()
+      return res.json() as Promise<any[]>
     },
     enabled: !!patientId,
   })
 
-  const vitals: any[] = summary?.vitals ?? []
+  const vitals: any[] = vitalsHistory ?? []
 
   // unique vital types available
   const vitalTypes = useMemo(() => {
@@ -62,11 +62,11 @@ export function VitalsPage() {
   const referenceRange = filtered[0]?.reference_range ?? null
 
   return (
-    <PatientPageLayout patientId={patientId!} title="Vitals" icon="❤️" accentClass="border-l-4 border-l-pink-400">
+    <PatientPageLayout patientId={patientId!} title="Vitals History" icon="❤️" accentClass="border-l-4 border-l-pink-400">
       {isLoading ? (
         <div className="text-gray-400 text-sm animate-pulse">Loading...</div>
       ) : !vitals.length ? (
-        <p className="text-gray-400 text-sm">No recent vitals</p>
+        <p className="text-gray-400 text-sm">No vitals history available</p>
       ) : (
         <>
           {/* Vital selector */}

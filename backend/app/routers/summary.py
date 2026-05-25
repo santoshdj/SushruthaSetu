@@ -31,6 +31,15 @@ def get_patient_summary(
     return summary
 
 
+@router.get("/{patient_id}/vitals/history")
+def get_vitals_history(
+    patient_id: str,
+    _current_user: Annotated[dict, Depends(get_current_user)],
+) -> list[dict]:
+    """All vital-sign readings for the trend/history page."""
+    return summary_service.get_vitals_history(patient_id)
+
+
 @router.get("/{patient_id}/ai-summary")
 def get_ai_summary(
     patient_id: str,

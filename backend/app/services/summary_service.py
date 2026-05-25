@@ -135,11 +135,12 @@ def _get_vital_range(code: str) -> dict | None:
     return None
 
 
-def _get_vitals(patient_id: str) -> list[dict]:
-    bundle = fhir_client.search_resource(
-        "Observation",
-        {"patient": patient_id, "category": "vital-signs", "_sort": "-date", "_count": 50},
-    )
+def _parse_vitals_bundle(bundle: dict, *, dedup: bool) -> list[dict]:
+    """Parse a vital-signs Observation bundle into a flat list of reading dicts.
+
+    When *dedup* is True only the most-recent reading per vital code is kept
+    (nurse check-in view).  When False every reading is returned (trend view).
+    """
     seen_codes: set[str] = set()
     result: list[dict] = []
     for o in _extract_entries(bundle):
@@ -148,7 +149,9 @@ def _get_vitals(patient_id: str) -> list[dict]:
         if o.get("component"):
             for comp in o["component"]:
                 code = comp.get("code", {}).get("text", "")
-                if not code or code in seen_codes:
+                if not code:
+                    continue
+                if dedup and code in seen_codes:
                     continue
                 seen_codes.add(code)
                 vq = comp.get("valueQuantity", {})
@@ -159,7 +162,9 @@ def _get_vitals(patient_id: str) -> list[dict]:
                 result.append(entry)
             continue
         code = o.get("code", {}).get("text", "")
-        if not code or code in seen_codes:
+        if not code:
+            continue
+        if dedup and code in seen_codes:
             continue
         # Scalar observation — valueQuantity or valueInteger
         vq = o.get("valueQuantity")
@@ -179,6 +184,24 @@ def _get_vitals(patient_id: str) -> list[dict]:
             entry["reference_range"] = ref
         result.append(entry)
     return result
+
+
+def _get_vitals(patient_id: str) -> list[dict]:
+    """Latest single reading per vital type — used for the check-in panel on the patient hub."""
+    bundle = fhir_client.search_resource(
+        "Observation",
+        {"patient": patient_id, "category": "vital-signs", "_sort": "-date", "_count": 50},
+    )
+    return _parse_vitals_bundle(bundle, dedup=True)
+
+
+def get_vitals_history(patient_id: str) -> list[dict]:
+    """All vital-sign readings without deduplication — used for the trend/history page."""
+    bundle = fhir_client.search_resource(
+        "Observation",
+        {"patient": patient_id, "category": "vital-signs", "_sort": "-date", "_count": 100},
+    )
+    return _parse_vitals_bundle(bundle, dedup=False)
 
 
 def _get_labs(patient_id: str) -> list[dict]:
