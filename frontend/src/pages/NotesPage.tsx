@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { apiFetchWithAuth } from '@/lib/api'
 import { PatientPageLayout } from '@/components/PatientPageLayout'
+import { NoteBody } from '@/components/NoteBody'
 
 interface Note {
   id: string
@@ -44,25 +45,45 @@ export function NotesPage() {
         <div className="space-y-3">
           {notes.map(note => {
             const isOpen = expanded.has(note.id)
-            const preview = note.text.length > 200 ? note.text.slice(0, 200) + '…' : note.text
+            const isApp = note.source === 'This App'
             return (
-              <div key={note.id} className="border border-gray-100 rounded-lg overflow-hidden">
+              <div
+                key={note.id}
+                className={`rounded-xl border overflow-hidden ${
+                  isApp ? 'border-blue-200' : 'border-gray-200'
+                }`}
+              >
+                {/* Header — always visible, acts as toggle */}
                 <button
                   onClick={() => toggle(note.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    isApp
+                      ? 'bg-blue-50 hover:bg-blue-100'
+                      : 'bg-slate-50 hover:bg-slate-100'
+                  }`}
                 >
-                  <span className="text-xs text-gray-400 w-24 shrink-0">{note.date?.slice(0, 10) ?? '—'}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium shrink-0 ${
-                    note.source === 'This App' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'
-                  }`}>
+                  <span className="font-bold text-sm text-gray-800 w-28 shrink-0">
+                    {note.date?.slice(0, 10) ?? '—'}
+                  </span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded font-semibold shrink-0 ${
+                      isApp
+                        ? 'bg-blue-200 text-blue-700'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
                     {note.source}
                   </span>
-                  <span className="flex-1 text-sm text-gray-600 truncate">{preview}</span>
-                  <span className="text-gray-400 text-xs select-none shrink-0">{isOpen ? '▲' : '▼'}</span>
+                  <span className="flex-1" />
+                  <span className="text-xs font-medium text-gray-500 select-none shrink-0">
+                    {isOpen ? 'Collapse ▲' : 'Expand ▼'}
+                  </span>
                 </button>
+
+                {/* Body — structured note content */}
                 {isOpen && (
-                  <div className="px-4 pb-4 pt-1 border-t border-gray-50">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{note.text}</p>
+                  <div className="bg-white px-5 py-4 border-t border-gray-100">
+                    <NoteBody text={note.text} />
                   </div>
                 )}
               </div>

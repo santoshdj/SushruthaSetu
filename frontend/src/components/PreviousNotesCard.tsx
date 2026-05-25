@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetchWithAuth } from '@/lib/api'
+import { NoteBody } from '@/components/NoteBody'
 
 interface Note {
   id: string
@@ -18,6 +19,14 @@ export function PreviousNotesCard({ patientId }: Props) {
   const { getToken } = useAuth()
   const [expanded, setExpanded] = useState(false)
   const [open, setOpen] = useState(true)
+  const [openNotes, setOpenNotes] = useState<Set<string>>(new Set())
+
+  const toggleNote = (id: string) =>
+    setOpenNotes(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
 
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ['patient', patientId, 'notes'],
@@ -56,24 +65,53 @@ export function PreviousNotesCard({ patientId }: Props) {
             <p className="text-gray-400 text-sm">No previous notes on record.</p>
           ) : (
             <>
-              <div className="space-y-4">
-                {visible.map((note) => (
-                  <div key={note.id} className="border border-gray-100 rounded-md p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs text-gray-400">{note.date ? note.date.slice(0, 10) : '—'}</span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded font-medium ${
-                          note.source === 'This App'
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'bg-gray-100 text-gray-500'
+              <div className="space-y-3">
+                {visible.map((note) => {
+                  const isNoteOpen = openNotes.has(note.id)
+                  const isApp = note.source === 'This App'
+                  return (
+                    <div
+                      key={note.id}
+                      className={`rounded-xl border overflow-hidden ${
+                        isApp ? 'border-blue-200' : 'border-gray-200'
+                      }`}
+                    >
+                      {/* Header — always visible, acts as toggle */}
+                      <button
+                        onClick={() => toggleNote(note.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                          isApp
+                            ? 'bg-blue-50 hover:bg-blue-100'
+                            : 'bg-slate-50 hover:bg-slate-100'
                         }`}
                       >
-                        {note.source}
-                      </span>
+                        <span className="font-bold text-sm text-gray-800 shrink-0">
+                          {note.date ? note.date.slice(0, 10) : '—'}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded font-semibold shrink-0 ${
+                            isApp
+                              ? 'bg-blue-200 text-blue-700'
+                              : 'bg-gray-200 text-gray-600'
+                          }`}
+                        >
+                          {note.source}
+                        </span>
+                        <span className="flex-1" />
+                        <span className="text-xs font-medium text-gray-500 select-none shrink-0">
+                          {isNoteOpen ? 'Collapse ▲' : 'Expand ▼'}
+                        </span>
+                      </button>
+
+                      {/* Body — structured note content */}
+                      {isNoteOpen && (
+                        <div className="bg-white px-5 py-4 border-t border-gray-100">
+                          <NoteBody text={note.text} />
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{note.text}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {notes.length > 1 && (
