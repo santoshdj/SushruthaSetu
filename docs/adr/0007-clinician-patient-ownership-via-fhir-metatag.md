@@ -1,6 +1,6 @@
 # ADR 0007 — Clinician-Scoped Patient and Schedule Visibility via FHIR `meta.tag`
 
-**Date:** 2025-07-21
+**Date:** 2026-05-25
 **Status:** Accepted
 
 ---

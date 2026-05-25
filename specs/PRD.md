@@ -6,6 +6,8 @@
 **Updated:** 2026-05-19 — Phase 4: Visit Notes & Clinical Note History  
 **Updated:** 2026-05-20 — Phase 5: AI Action Recommendations  
 **Updated:** 2026-05-25 — Phase 6: Audit Events & Events Page; permission matrix revised; role values renamed  
+**Updated:** 2026-05-25 — Phase 7: Clinician-Scoped Patient and Schedule Visibility  
+**Updated:** 2026-05-25 — Phase 8: Patient Hub Vitals Redesign (Latest Vitals check-in panel + Vitals History trend page)  
 **Status:** Ready for Implementation
 
 ---
@@ -140,7 +142,30 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 98. As a clinician_user, I want to be automatically redirected to the home page when I navigate to `/events`, so that the access boundary is enforced silently without exposing an error page.
 99. As a developer, I want all patient-modifying operations (create, update) and authentication events (login, unauthorized access) to generate Audit Events automatically at the API boundary, so that the audit trail requires no frontend instrumentation.
 100. As a developer, I want Audit Event writes to be fire-and-forget (write failures are logged server-side but never surfaced to the clinician), so that an audit service failure never blocks the primary clinical workflow.
----
+
+### Phase 7: Clinician-Scoped Patient and Schedule Visibility
+
+101. As a clinician_user, I want the Patients page to show only the patients I have personally registered, so that I have a focused view of my own patient panel without distractions from other clinicians' patients.
+102. As a clinician_user, I want the Schedule page to show only appointments for patients in my patient panel, so that my daily schedule reflects only my own workload.
+103. As a clinician_user, I want patients I register to be automatically attributed to me, so that I do not need to manually assign ownership after creating a record.
+104. As a clinician_admin, I want to see all patients across all clinicians when I browse the Patients page, so that I can provide oversight and manage the full patient registry.
+105. As a clinician_admin, I want the Schedule page to show all appointments regardless of clinician ownership, so that I can monitor clinic-wide activity.
+106. As a clinician_admin, I want a seed operation that distributes existing untagged patients randomly between two specified clinicians, so that I can initialise demo and staging environments where Synthea-generated patients pre-exist without an owner.
+107. As a clinician_admin, I want the seed operation to skip patients that already have an ownership tag, so that running it multiple times does not overwrite previously assigned ownership.
+108. As a developer, I want patient ownership stored as a FHIR `meta.tag` on the Patient resource so that ownership travels with the resource and no separate data store is required.
+109. As a developer, I want the backend to enforce patient visibility filtering server-side (not client-side) so that a malicious client cannot retrieve another clinician's patients by crafting direct FHIR queries.
+110. As a developer, I want clock-skew tolerance built into JWT verification so that marginally expired tokens issued by Clerk do not cause false authentication failures.
+
+### Phase 8: Patient Hub Vitals Redesign
+
+111. As a clinician, I want the latest nurse check-in vitals displayed at the top of the Patient Hub right column — before the Clinical Detail Pages icon grid — so that I can see the patient's current readings the moment I open their record without scrolling.
+112. As a clinician, I want the latest vitals presented as compact metric cards in a responsive horizontal grid, each showing the vital name, current value with unit, and a clear HIGH / LOW / ✓ status indicator, so that I can assess all vitals at a glance in under five seconds.
+113. As a clinician, I want the vitals check-in panel to show only the single most-recent reading per vital type, so that I see current status rather than a list of historical values.
+114. As a clinician, I want a "View history →" link in the vitals check-in panel that navigates to the Vitals History Clinical Detail Page, so that I can drill into trend data when a value warrants further investigation.
+115. As a clinician, I want a dedicated Vitals History page (accessible from the ❤️ icon in the nav grid) that shows all historical readings for each vital type across up to 100 observations, so that I can analyse trends over time rather than just the current snapshot.
+116. As a clinician, I want the Vitals History page to support per-vital trend charts with a reference range band as well as a table view with Δ Change column, so that I can choose the most useful representation for the clinical question I am asking.
+117. As a clinician, I want the Vitals History chart to render correctly even for a single data point, so that a patient with only one recorded vital does not see a broken chart.
+118. As a developer, I want the vitals endpoint to support two modes — latest-per-code (for the check-in panel) and full-history (for the trend page) — via separate endpoints, so that each consumer gets exactly the data it needs without over-fetching.
 
 ## Implementation Decisions
 
@@ -199,20 +224,38 @@ A single, schedule-driven web application that gives outpatient clinicians one p
 
 - **Audit event service (backend)** — a fire-and-forget service that constructs and POSTs a FHIR R4 `AuditEvent` resource to the FHIR server. Called at API boundaries for five event types: Login, Patient Viewed, Patient Created, Patient Updated, and Unauthorized Access Attempt. Write failures are caught, logged server-side, and never propagated to the caller.
 - **Audit events router (backend)** — `GET /events` proxies a paginated FHIR `AuditEvent` bundle to the frontend. Protected by the `require_admin` dependency; returns HTTP 403 for `clinician_user` tokens.
-- **Events page (frontend)** — a read-only table at `/events` showing all Audit Events in reverse-chronological order, filterable by event type and date range. Columns: Timestamp, Event Type, User, Patient, Outcome.
+- **Events page (frontend)** — a read-only table at `/events` showing all Audit Events in reverse-chronological order, filterable by event type and date range. Columns: Timestamp, Event Type, User, Name (human-readable name from JWT `first_name`/`last_name` at write time), Patient, Outcome. An **Export CSV** button downloads the currently filtered view as a CSV file.
 
-### API Contract
+**Phase 7 additions:**
+
+- **Patient ownership tag** — a `meta.tag` entry `{ system: "patient-mgmt-app/clinician", code: <clerk_user_id> }` is stamped onto every Patient FHIR resource at creation time. `CLINICIAN_TAG_SYSTEM` constant lives in `patient_service.py` and is imported wherever ownership must be checked.
+- **Patient list service update** — `list_patients(name, page_token, clinician_id)` adds `_tag=<system>|<id>` to the FHIR `Patient` search when `clinician_id` is provided, performing server-side filtering. The FHIR server's pagination `next` URL already encodes the `_tag` parameter, so subsequent page fetches preserve the filter automatically.
+- **Patient registration service update** — `create_patient(data, clinician_id)` stamps `meta.tag` on the FHIR body before POSTing. `update_patient` does not touch `meta` so that ownership is preserved across edits.
+- **Patients router update** — resolves the caller's role from the Clerk JWT. Admin tokens pass `clinician_id=None`; all other tokens pass `clinician_id=sub`. Both create and list operations use this pattern.
+- **Schedule service update** — `get_today_schedule(clinician_id)` fetches the set of Patient IDs owned by the clinician via `_tag` search (`_elements=id`, `_count=1000`) then filters appointments client-side by membership in that set. Admin tokens bypass the filter by passing `clinician_id=None`.
+- **Admin router** — new `POST /admin/seed-clinician-patients` endpoint (protected by `require_admin`). Accepts `{ clinician_1_id, clinician_2_id }`. Fetches all patients, finds those without an ownership tag, shuffles and splits 50/50, PUTs each patient with the tag added. Already-tagged patients are skipped. Errors per patient are logged but do not abort the operation.
+- **JWT auth fix** — `PyJWKClient` is instantiated once and cached per TTL rather than on every request. `jwt.decode` is called with `leeway=timedelta(seconds=60)` to tolerate clock skew between the server and Clerk.
+
+**Phase 8 additions:**
+
+- **`_parse_vitals_bundle(bundle, dedup)` helper (backend)** — shared internal function replacing the previous `_get_vitals` implementation. When `dedup=True` (nurse check-in mode), only the first occurrence of each vital code is kept (sorted by `-date`, so the most recent wins). When `dedup=False` (history mode), all observations are returned. Both callers specify the flag explicitly — no implicit behaviour.
+- **`get_vitals_history` service function (backend)** — calls `_parse_vitals_bundle` with `dedup=False` and `_count=100`. Exposed via the new `GET /patients/{id}/vitals/history` endpoint.
+- **`GET /patients/{id}/vitals/history` endpoint** — returns `list[dict]` directly (not nested under a `summary` key). Requires a valid Clerk JWT; no admin restriction.
+- **Latest Vitals panel (Patient Hub)** — positioned at the top of the right column, above the Clinical Detail Pages icon grid. Data sourced from `summary.vitals` (already fetched by the summary query). Rendered as a responsive CSS grid (`grid-cols-3 sm:grid-cols-4 lg:grid-cols-6`). Each cell shows vital name (truncated), value + unit, and a HIGH / LOW / ✓ badge. The recorded date and "View history →" link are inlined in the panel header.
+- **Vitals History page update** — renamed from "Vitals" to "Vitals History". Query changed from `summary.vitals` to a dedicated `useQuery` calling `/patients/{id}/vitals/history`. Vital type selector, Δ Change table, and chart view now operate over the full multi-reading dataset.
 
 Backend exposes the following REST endpoints:
 
 ```
-GET  /schedule/today              → list of today's appointments
-GET  /patients/{id}/summary       → structured aggregate (all 7 sections)
+GET  /schedule/today              → list of today's appointments (filtered by clinician_id for clinician_user)
+GET  /patients/{id}/summary       → structured aggregate (all 7 sections); vitals = latest-per-code
+GET  /patients/{id}/vitals/history → all vital-sign readings without dedup (up to 100 obs)
 GET  /patients/{id}/ai-summary    → pre-visit AI narrative (returns JSON with bullets array)
 
-GET  /patients?name={term}&_count=20&page_token={token}  → paginated patient list
-POST /patients                    → create new patient
-PUT  /patients/{id}               → update existing patient
+GET  /patients?name={term}&_count=20&page_token={token}  → paginated patient list (filtered by ownership for clinician_user)
+POST /patients                    → create new patient (stamps meta.tag with caller's sub)
+PUT  /patients/{id}               → update existing patient (preserves meta.tag)
+GET  /patients/{id}               → fetch single patient (full FHIR resource)
 
 GET  /patients/{id}/notes         → list of DocumentReference notes (Clinical + Visit)
 POST /patients/{id}/notes         → create a Visit Note (any authenticated user)
@@ -220,21 +263,24 @@ POST /patients/{id}/notes         → create a Visit Note (any authenticated use
 POST /patients/{id}/action-recommendations  → generate AI action recommendations from note text
 
 GET  /events                      → paginated AuditEvent log (clinician_admin only)
+
+POST /admin/seed-clinician-patients → distribute untagged patients between two clinicians (clinician_admin only)
 ```
 
 ### Data Flow
 
-1. Frontend loads schedule → `GET /schedule/today`
+1. Frontend loads schedule → `GET /schedule/today` (filtered to clinician-owned patients for `clinician_user`; all appointments for `clinician_admin`)
 2. Clinician clicks patient → navigate to `/patients/:id`
 3. React Query fires `useQueries` for `/patients/{id}/summary`, `/patients/{id}/ai-summary`, and `/patients/{id}/notes` in parallel
 4. Structured cards render as `/summary` resolves; AI card shows spinner until `/ai-summary` resolves; Previous Notes card renders as `/notes` resolves
-5. Backend `/summary` handler calls FHIR client in parallel for all 7 resources, aggregates, runs care gap rules engine, returns combined JSON
+5. Backend `/summary` handler calls FHIR client in parallel for all 7 resources, aggregates, runs care gap rules engine, returns combined JSON. `summary.vitals` is **deduped** (one reading per vital code, most recent first) for the Latest Vitals check-in panel.
 6. Backend `/ai-summary` handler calls Claude with the aggregated patient data as context
-7. Clinician types or dictates a visit note; draft auto-saved to `localStorage` on every keystroke (debounced 500ms)
-8. Clinician clicks "✨ Suggest next steps" → `POST /patients/{id}/action-recommendations` with current note text
-9. Backend action recommendations handler fetches aggregate + 5 recent notes internally, calls Claude, returns categorised JSON
-10. `ActionRecommendationsCard` updates with results; clinician reviews and acts on suggestions
-11. Clinician clicks "Save Note" → `POST /patients/{id}/notes`; `localStorage` draft cleared; notes list refreshes
+7. Latest Vitals panel renders at the top of the right column from `summary.vitals`; "View history →" navigates to `/patients/:id/vitals` which calls `/patients/{id}/vitals/history` for full trend data
+8. Clinician types or dictates a visit note; draft auto-saved to `localStorage` on every keystroke (debounced 500ms)
+9. Clinician clicks "✨ Suggest next steps" → `POST /patients/{id}/action-recommendations` with current note text
+10. Backend action recommendations handler fetches aggregate + 5 recent notes internally, calls Claude, returns categorised JSON
+11. `ActionRecommendationsCard` updates with results; clinician reviews and acts on suggestions
+12. Clinician clicks "Save Note" → `POST /patients/{id}/notes`; `localStorage` draft cleared; notes list refreshes
 
 ### Configuration
 
