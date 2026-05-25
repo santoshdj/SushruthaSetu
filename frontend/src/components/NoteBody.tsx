@@ -1,8 +1,9 @@
 /**
  * Renders clinical note text with structured formatting:
- *  - Lines ending in ':'  → bold section header
- *  - Lines starting with - • *  → bullet list
- *  - Everything else  → regular paragraph
+ *  - Lines starting with # / ## / ###  → markdown-style bold section heading
+ *  - Lines ending in ':'               → bold inline section label
+ *  - Lines starting with - • *         → bullet list
+ *  - Everything else                   → regular paragraph
  */
 export function NoteBody({ text }: { text: string }) {
   const elements: React.ReactNode[] = []
@@ -38,11 +39,29 @@ export function NoteBody({ text }: { text: string }) {
 
     flushBullets()
 
-    const isHeader =
-      line.endsWith(':') && line.length < 80 && !line.includes('.')
+    // Markdown headings: #, ##, ###
+    const mdMatch = line.match(/^(#{1,3})\s+(.+)/)
+    if (mdMatch) {
+      const level = mdMatch[1].length
+      const headingText = mdMatch[2]
+      const cls =
+        level === 1
+          ? 'text-base font-bold text-gray-900 mt-4 first:mt-0'
+          : level === 2
+          ? 'text-sm font-bold text-gray-800 mt-3 first:mt-0'
+          : 'text-sm font-semibold text-gray-700 mt-2 first:mt-0'
+      elements.push(
+        <p key={key++} className={cls}>
+          {headingText}
+        </p>
+      )
+      continue
+    }
 
+    // Colon-terminated inline labels
+    const isLabel = line.endsWith(':') && line.length < 80 && !line.includes('.')
     elements.push(
-      isHeader ? (
+      isLabel ? (
         <p key={key++} className="text-sm font-semibold text-gray-800 mt-3 first:mt-0">
           {line}
         </p>
