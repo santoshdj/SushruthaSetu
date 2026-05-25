@@ -57,23 +57,15 @@ describe('PatientsPage', () => {
     mockApiFetch.mockReset()
   })
 
-  it('admin sees the "New Patient" button', async () => {
-    mockUseRole.mockReturnValue('admin')
+  it('all users see the "New Patient" button', async () => {
+    mockUseRole.mockReturnValue('clinician')
     mockApiFetch.mockResolvedValueOnce(makePatientResponse())
     renderPage()
     expect(await screen.findByRole('button', { name: '+ New Patient' })).toBeInTheDocument()
   })
 
-  it('clinician does not see the "New Patient" button', async () => {
+  it('all users see an Edit button for each patient row', async () => {
     mockUseRole.mockReturnValue('clinician')
-    mockApiFetch.mockResolvedValueOnce(makePatientResponse())
-    renderPage()
-    await screen.findByText('Alice Brown')
-    expect(screen.queryByRole('button', { name: '+ New Patient' })).not.toBeInTheDocument()
-  })
-
-  it('admin sees an Edit button for each patient row', async () => {
-    mockUseRole.mockReturnValue('admin')
     mockApiFetch.mockResolvedValueOnce(makePatientResponse([
       { id: '1', first_name: 'Alice', last_name: 'Brown', gender: 'female', birth_date: '1990-01-01' },
       { id: '2', first_name: 'Bob', last_name: 'Jones', gender: 'male', birth_date: '1975-05-20' },
@@ -81,14 +73,6 @@ describe('PatientsPage', () => {
     renderPage()
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
     expect(editButtons).toHaveLength(2)
-  })
-
-  it('clinician does not see Edit buttons', async () => {
-    mockUseRole.mockReturnValue('clinician')
-    mockApiFetch.mockResolvedValueOnce(makePatientResponse())
-    renderPage()
-    await screen.findByText('Alice Brown')
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
   })
 
   it('renders patient name, gender and date of birth in the list', async () => {

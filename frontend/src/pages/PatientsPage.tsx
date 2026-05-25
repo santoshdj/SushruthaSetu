@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useRole } from '@/hooks/useRole'
 import { apiFetchWithAuth } from '@/lib/api'
 import { PatientFormModal } from '@/components/PatientFormModal'
 import { formatDOB } from '@/lib/utils'
@@ -25,7 +24,6 @@ type PatientListResponse = {
 
 export function PatientsPage() {
   const { getToken } = useAuth()
-  const role = useRole()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -65,14 +63,12 @@ export function PatientsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Patients</h1>
-        {role === 'admin' && (
-          <button
+        <button
             onClick={() => setModalState({ open: true })}
             className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
             + New Patient
           </button>
-        )}
       </div>
 
       <div className="mb-4">
@@ -97,7 +93,7 @@ export function PatientsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Birth</th>
-                  {role === 'admin' && <th className="px-6 py-3" />}
+                  <th className="px-6 py-3" />
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -117,8 +113,7 @@ export function PatientsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 capitalize">{patient.gender}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{formatDOB(patient.birth_date)}</td>
-                      {role === 'admin' && (
-                        <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right">
                           <button
                             onClick={(e) => { e.stopPropagation(); setModalState({ open: true, patientId: patient.id }) }}
                             className="text-sm text-blue-600 hover:underline"
@@ -126,7 +121,6 @@ export function PatientsPage() {
                             Edit
                           </button>
                         </td>
-                      )}
                     </tr>
                   ))
                 )}

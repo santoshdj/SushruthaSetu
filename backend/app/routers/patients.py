@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.auth import get_current_user, require_admin
+from app.auth import get_current_user
 from app.models.patient import PatientCreate, PatientUpdate, PatientResponse, PatientListResponse
 from app.services import patient_service
 from app.services.audit import post_audit_event
@@ -30,7 +30,7 @@ def get_patient(
 @router.post("", response_model=PatientResponse, status_code=201)
 def create_patient(
     data: PatientCreate,
-    current_user: Annotated[dict, Depends(require_admin)] = None,
+    current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> PatientResponse:
     result = patient_service.create_patient(data)
     patient_name = f"{result.first_name} {result.last_name}".strip() or None
@@ -47,24 +47,7 @@ def create_patient(
 def update_patient(
     patient_id: str,
     data: PatientUpdate,
-    current_user: Annotated[dict, Depends(require_admin)] = None,
-) -> PatientResponse:
-    result = patient_service.update_patient(patient_id, data)
-    patient_name = f"{result.first_name} {result.last_name}".strip() or None
-    post_audit_event(
-        "patient-updated",
-        user_id=current_user.get("sub", "unknown"),
-        patient_id=patient_id,
-        patient_name=patient_name,
-    )
-    return result
-
-
-@router.put("/{patient_id}", response_model=PatientResponse)
-def update_patient(
-    patient_id: str,
-    data: PatientUpdate,
-    current_user: Annotated[dict, Depends(require_admin)] = None,
+    current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> PatientResponse:
     result = patient_service.update_patient(patient_id, data)
     patient_name = f"{result.first_name} {result.last_name}".strip() or None
