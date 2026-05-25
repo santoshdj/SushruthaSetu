@@ -8,6 +8,7 @@ export function NavBar() {
   const navItems = [
     { label: 'Schedule', to: '/' },
     { label: 'Patients', to: '/patients' },
+    { label: 'Events', to: '/events' },
   ]
 
   return (

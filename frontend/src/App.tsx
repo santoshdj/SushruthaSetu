@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { SignIn } from '@clerk/clerk-react'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { NavBar } from '@/components/NavBar'
+import { LoginAuditBridge } from '@/components/LoginAuditBridge'
 import { SchedulePage } from '@/pages/SchedulePage'
 import { PatientsPage } from '@/pages/PatientsPage'
 import { PatientDashboardPage } from '@/pages/PatientDashboardPage'
@@ -15,10 +16,13 @@ import { LabsPage } from '@/pages/LabsPage'
 import { VisitHistoryPage } from '@/pages/VisitHistoryPage'
 import { ImmunizationsPage } from '@/pages/ImmunizationsPage'
 import { NotesPage } from '@/pages/NotesPage'
+import { EventsPage } from '@/pages/EventsPage'
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <LoginAuditBridge />
+      <Routes>
       <Route
         path="/login"
         element={
@@ -47,8 +51,10 @@ export default function App() {
         <Route path="/patients/:patientId/visit-history" element={<VisitHistoryPage />} />
         <Route path="/patients/:patientId/immunizations" element={<ImmunizationsPage />} />
         <Route path="/patients/:patientId/notes" element={<NotesPage />} />
+        <Route path="/events" element={<EventsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }

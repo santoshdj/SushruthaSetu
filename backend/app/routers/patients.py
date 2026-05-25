@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.auth import get_current_user, require_admin
 from app.models.patient import PatientCreate, PatientUpdate, PatientResponse, PatientListResponse
 from app.services import patient_service
+from app.services.audit import post_audit_event
 
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
@@ -21,15 +22,31 @@ def list_patients(
 @router.post("", response_model=PatientResponse, status_code=201)
 def create_patient(
     data: PatientCreate,
-    _current_user: Annotated[dict, Depends(require_admin)] = None,
+    current_user: Annotated[dict, Depends(require_admin)] = None,
 ) -> PatientResponse:
-    return patient_service.create_patient(data)
+    result = patient_service.create_patient(data)
+    patient_name = f"{result.first_name} {result.last_name}".strip() or None
+    post_audit_event(
+        "patient-created",
+        user_id=current_user.get("sub", "unknown"),
+        patient_id=result.id,
+        patient_name=patient_name,
+    )
+    return result
 
 
 @router.put("/{patient_id}", response_model=PatientResponse)
 def update_patient(
     patient_id: str,
     data: PatientUpdate,
-    _current_user: Annotated[dict, Depends(require_admin)] = None,
+    current_user: Annotated[dict, Depends(require_admin)] = None,
 ) -> PatientResponse:
-    return patient_service.update_patient(patient_id, data)
+    result = patient_service.update_patient(patient_id, data)
+    patient_name = f"{result.first_name} {result.last_name}".strip() or None
+    post_audit_event(
+        "patient-updated",
+        user_id=current_user.get("sub", "unknown"),
+        patient_id=patient_id,
+        patient_name=patient_name,
+    )
+    return result
