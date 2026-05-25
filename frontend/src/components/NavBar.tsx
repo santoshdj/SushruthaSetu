@@ -15,7 +15,7 @@ export function NavBar() {
     <>
       <nav className="border-b bg-white px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-6">
-          <span className="font-semibold text-gray-800 text-lg">Patient Management</span>
+          <span className="font-semibold text-gray-800 text-lg">SushruthaSetu</span>
           <div className="flex gap-4">
             {navItems.map((item) => (
               <Link
