@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.services import notes_service
+from app.services import notes_service, patient_report_service
 
 router = APIRouter(prefix="/patients", tags=["Notes"])
 
@@ -12,6 +12,15 @@ router = APIRouter(prefix="/patients", tags=["Notes"])
 class NoteCreate(BaseModel):
     text: str
     encounter_date: str  # ISO-8601 datetime string
+
+
+class PatientReportRequest(BaseModel):
+    note_text: str
+    followup_date: str | None = None
+
+
+class PatientReportSave(BaseModel):
+    text: str
 
 
 @router.get("/{patient_id}/notes")
@@ -31,3 +40,28 @@ def create_note(
     if not body.text.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Note text cannot be empty")
     return notes_service.create_note(patient_id, body.text.strip(), body.encounter_date)
+
+
+@router.post("/{patient_id}/generate-patient-report")
+def generate_patient_report(
+    patient_id: str,
+    body: PatientReportRequest,
+    _current_user: Annotated[dict, Depends(get_current_user)],
+) -> dict:
+    if not body.note_text.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Note text cannot be empty")
+    text = patient_report_service.generate_patient_report(
+        patient_id, body.note_text.strip(), body.followup_date
+    )
+    return {"text": text}
+
+
+@router.post("/{patient_id}/save-patient-report", status_code=201)
+def save_patient_report(
+    patient_id: str,
+    body: PatientReportSave,
+    _current_user: Annotated[dict, Depends(get_current_user)],
+) -> dict:
+    if not body.text.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Report text cannot be empty")
+    return patient_report_service.save_patient_report(patient_id, body.text.strip())

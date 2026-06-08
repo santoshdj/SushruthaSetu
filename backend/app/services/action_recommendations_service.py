@@ -34,7 +34,7 @@ _SYSTEM_PROMPT = (
     "\"category\" (one of: Medications, Lab Tests, Referrals, Follow-up, Patient Education), "
     "\"action\" (a concise imperative string, e.g. \"Order HbA1c\"), "
     "\"urgency\" (one of: routine, urgent, critical), "
-    ""rationale" (one sentence explaining why, grounded in the provided data), "
+    "\"rationale\" (one sentence explaining why, grounded in the provided data), "
     "\"guideline_citation\" (optional object with \"source\" and \"text\" fields citing the specific clinical guideline — e.g. ADA 2024, AHA/ACC 2017 — that justifies this recommendation; omit the key if no guideline applies). "
     "Do NOT suggest anything the patient is already receiving per their current medications or existing orders. "
     "Do NOT include any text, markdown, or explanation outside the JSON array. "

@@ -8,6 +8,7 @@ interface Note {
   id: string
   date: string
   source: 'EHR' | 'This App'
+  note_type?: string
   text: string
 }
 
@@ -69,18 +70,21 @@ export function PreviousNotesCard({ patientId }: Props) {
                 {visible.map((note) => {
                   const isNoteOpen = openNotes.has(note.id)
                   const isApp = note.source === 'This App'
+                  const isReport = note.note_type === 'patient-report'
                   return (
                     <div
                       key={note.id}
                       className={`rounded-xl border overflow-hidden ${
-                        isApp ? 'border-blue-200' : 'border-gray-200'
+                        isReport ? 'border-teal-200' : isApp ? 'border-blue-200' : 'border-gray-200'
                       }`}
                     >
                       {/* Header — always visible, acts as toggle */}
                       <button
                         onClick={() => toggleNote(note.id)}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                          isApp
+                          isReport
+                            ? 'bg-teal-50 hover:bg-teal-100'
+                            : isApp
                             ? 'bg-blue-50 hover:bg-blue-100'
                             : 'bg-slate-50 hover:bg-slate-100'
                         }`}
@@ -90,12 +94,14 @@ export function PreviousNotesCard({ patientId }: Props) {
                         </span>
                         <span
                           className={`text-xs px-2 py-0.5 rounded font-semibold shrink-0 ${
-                            isApp
+                            isReport
+                              ? 'bg-teal-200 text-teal-700'
+                              : isApp
                               ? 'bg-blue-200 text-blue-700'
                               : 'bg-gray-200 text-gray-600'
                           }`}
                         >
-                          {note.source}
+                          {isReport ? 'Patient summary' : note.source}
                         </span>
                         <span className="flex-1" />
                         <span className="text-xs font-medium text-gray-500 select-none shrink-0">

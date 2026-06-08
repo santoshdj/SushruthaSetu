@@ -27,6 +27,15 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
   const [saveSuccess, setSaveSuccess] = useState(false)
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Post-visit patient report state
+  const [savedNoteText, setSavedNoteText] = useState<string | null>(null)
+  const [reportGenerating, setReportGenerating] = useState(false)
+  const [reportText, setReportText] = useState<string | null>(null)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportSaving, setReportSaving] = useState(false)
+  const [reportSaved, setReportSaved] = useState(false)
+  const [reportGenError, setReportGenError] = useState<string | null>(null)
+
   // Follow-up date — pre-fill from existing value, else today + suggestion
   const defaultFollowupDate = (): string => {
     if (currentFollowupDue) return currentFollowupDue
@@ -121,6 +130,7 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
           { method: 'PATCH', body: JSON.stringify({ followup_due: followupDate }) },
         ).catch(() => { /* best-effort */ })
       }
+      setSavedNoteText(text)  // capture for Generate Patient Summary
       clearDraft()
       setNoteText('')
       setInterimText('')
@@ -140,6 +150,55 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
     setNoteText('')
     setInterimText('')
     clearDraft()
+  }
+
+  const handleGenerateReport = async () => {
+    if (!savedNoteText) return
+    setReportGenerating(true)
+    setReportGenError(null)
+    try {
+      const res = await apiFetchWithAuth(
+        `/patients/${patientId}/generate-patient-report`,
+        getToken,
+        { method: 'POST', body: JSON.stringify({ note_text: savedNoteText, followup_date: followupDate || null }) },
+      )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail ?? 'Failed to generate report')
+      }
+      const data = await res.json()
+      setReportText(data.text)
+      setReportModalOpen(true)
+    } catch (err: any) {
+      setReportGenError(err.message ?? 'Unknown error')
+    } finally {
+      setReportGenerating(false)
+    }
+  }
+
+  const handleSaveReport = async () => {
+    if (!reportText?.trim()) return
+    setReportSaving(true)
+    try {
+      const res = await apiFetchWithAuth(
+        `/patients/${patientId}/save-patient-report`,
+        getToken,
+        { method: 'POST', body: JSON.stringify({ text: reportText.trim() }) },
+      )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail ?? 'Failed to save report')
+      }
+      setReportModalOpen(false)
+      setReportSaved(true)
+      setSavedNoteText(null)
+      queryClient.invalidateQueries({ queryKey: ['patient', patientId, 'notes'] })
+      setTimeout(() => setReportSaved(false), 4000)
+    } catch (err: any) {
+      setReportGenError(err.message ?? 'Unknown error')
+    } finally {
+      setReportSaving(false)
+    }
   }
 
   return (
@@ -256,6 +315,67 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
               className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <span className="text-xs text-gray-400">— saved with note</span>
+          </div>
+
+          {/* Generate Patient Summary — shown after a note has been saved */}
+          {savedNoteText && (
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleGenerateReport}
+                disabled={reportGenerating}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {reportGenerating ? 'Generating…' : '📋 Generate Patient Summary'}
+              </button>
+              {reportSaved && (
+                <span className="text-xs text-green-600 font-medium">✓ Patient summary saved to record</span>
+              )}
+              {reportGenError && (
+                <span className="text-xs text-red-600">{reportGenError}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Patient Report Preview Modal */}
+      {reportModalOpen && reportText !== null && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh]">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-800">📋 Patient Visit Summary</h2>
+              <button
+                onClick={() => setReportModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <div className="px-6 py-4 flex-1 overflow-auto">
+              <p className="text-xs text-gray-400 mb-3">
+                Review and edit this plain-language summary before saving it to the patient's record.
+              </p>
+              <textarea
+                className="w-full h-64 rounded-md border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-y"
+                value={reportText}
+                onChange={e => setReportText(e.target.value)}
+              />
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3">
+              <button
+                onClick={handleSaveReport}
+                disabled={reportSaving || !reportText.trim()}
+                className="px-5 py-2 rounded bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {reportSaving ? 'Saving…' : 'Save to Record'}
+              </button>
+              <button
+                onClick={() => setReportModalOpen(false)}
+                className="px-5 py-2 rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

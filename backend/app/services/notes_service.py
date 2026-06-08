@@ -17,6 +17,20 @@ logger = logging.getLogger(__name__)
 
 _APP_TAG_SYSTEM = "patient-mgmt-app"
 _APP_TAG_CODE = "visit-note"
+_APP_TAG_CODE_REPORT = "patient-report"
+
+
+def _get_note_type(doc: dict) -> str:
+    """Return 'visit-note', 'patient-report', or 'ehr' based on meta tags."""
+    tags = doc.get("meta", {}).get("tag", [])
+    for t in tags:
+        if t.get("system") == _APP_TAG_SYSTEM:
+            code = t.get("code", "")
+            if code == _APP_TAG_CODE_REPORT:
+                return "patient-report"
+            if code == _APP_TAG_CODE:
+                return "visit-note"
+    return "ehr"
 
 
 def _decode_text(content_list: list) -> str:
@@ -70,6 +84,7 @@ def get_notes(patient_id: str) -> list[dict]:
             {
                 "id": doc.get("id", ""),
                 "date": date,
+                "note_type": _get_note_type(doc),
                 "source": "This App" if _is_app_note(doc) else "EHR",
                 "text": text,
             }
@@ -114,6 +129,7 @@ def create_note(patient_id: str, text: str, encounter_date: str) -> dict:
     return {
         "id": created.get("id", ""),
         "date": encounter_date,
+        "note_type": "visit-note",
         "source": "This App",
         "text": text,
     }
