@@ -154,7 +154,7 @@ export function PatientFormModal({ open, patientId, onClose, onSuccess }: Patien
   const availableStates = watchedCountry ? State.getStatesOfCountry(watchedCountry) : []
   const watchedStateObj = availableStates.find((s) => s.name === watchedState)
   const availableCities = watchedStateObj
-    ? City.getCitiesOfState(watchedCountry, watchedStateObj.isoCode)
+    ? City.getCitiesOfState(watchedCountry ?? '', watchedStateObj.isoCode)
     : []
 
   useEffect(() => {
