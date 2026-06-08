@@ -29,6 +29,7 @@ export function PatientsPage() {
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [searchMode, setSearchMode] = useState<'name' | 'phone'>('name')
   const [pageToken, setPageToken] = useState<string | null>(null)
   const [modalState, setModalState] = useState<{ open: boolean; patientId?: string }>({ open: false })
 
@@ -41,12 +42,19 @@ export function PatientsPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const queryKey = ['patients', debouncedSearch, pageToken]
+  const handleModeChange = useCallback((mode: 'name' | 'phone') => {
+    setSearchMode(mode)
+    setSearch('')
+    setDebouncedSearch('')
+    setPageToken(null)
+  }, [])
+
+  const queryKey = ['patients', searchMode, debouncedSearch, pageToken]
   const { data, isLoading, isError } = useQuery<PatientListResponse>({
     queryKey,
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (debouncedSearch) params.set('name', debouncedSearch)
+      if (debouncedSearch) params.set(searchMode, debouncedSearch)
       if (pageToken) params.set('page_token', pageToken)
       const res = await apiFetchWithAuth(`/patients?${params}`, getToken)
       if (!res.ok) throw new Error('Failed to fetch patients')
@@ -71,14 +79,41 @@ export function PatientsPage() {
           </button>
       </div>
 
-      <div className="mb-4">
-        <input
-          type="search"
-          placeholder="Search by name..."
-          value={search}
-          onChange={handleSearchChange}
-          className="w-full max-w-sm border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div className="mb-4 space-y-2">
+        {/* Search mode toggle */}
+        <div className="inline-flex rounded-md border border-gray-300 overflow-hidden text-sm">
+          <button
+            type="button"
+            onClick={() => handleModeChange('name')}
+            className={`px-4 py-1.5 font-medium transition-colors ${
+              searchMode === 'name'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Name
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeChange('phone')}
+            className={`px-4 py-1.5 font-medium transition-colors border-l border-gray-300 ${
+              searchMode === 'phone'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Phone
+          </button>
+        </div>
+        <div>
+          <input
+            type="search"
+            placeholder={searchMode === 'name' ? 'Search by name…' : 'Search by phone…'}
+            value={search}
+            onChange={handleSearchChange}
+            className="w-full max-w-sm border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
       {isLoading && <div className="text-gray-500">Loading patients...</div>}

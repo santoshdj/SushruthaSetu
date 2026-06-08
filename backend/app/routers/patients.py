@@ -13,12 +13,13 @@ router = APIRouter(prefix="/patients", tags=["Patients"])
 @router.get("", response_model=PatientListResponse)
 def list_patients(
     name: str | None = None,
+    phone: str | None = None,
     page_token: str | None = None,
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> PatientListResponse:
     role = (current_user or {}).get("publicMetadata", {}).get("role", "clinician_user")
     clinician_id = None if role == "clinician_admin" else (current_user or {}).get("sub")
-    return patient_service.list_patients(name=name, page_token=page_token, clinician_id=clinician_id)
+    return patient_service.list_patients(name=name, phone=phone, page_token=page_token, clinician_id=clinician_id)
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)

@@ -4,6 +4,7 @@ Handles FHIR Patient search, create (POST), and update (PUT).
 """
 
 import logging
+import re
 from typing import Any
 
 from app import fhir_client
@@ -265,13 +266,19 @@ def _apply_form_to_fhir(
     return resource
 
 
-def list_patients(name: str | None = None, page_token: str | None = None, clinician_id: str | None = None) -> PatientListResponse:
+def list_patients(name: str | None = None, phone: str | None = None, page_token: str | None = None, clinician_id: str | None = None) -> PatientListResponse:
     if page_token:
         bundle = fhir_client.fetch_bundle_page(page_token)
     else:
         params: dict[str, Any] = {"_count": _PAGE_SIZE}
         if name:
             params["name"] = name
+        if phone:
+            # Normalise: strip all non-digit characters, then use telecom string
+            # search which HAPI FHIR supports as a prefix/partial match.
+            digits = re.sub(r"\D", "", phone)
+            if digits:
+                params["telecom"] = digits
         if clinician_id:
             params["_tag"] = f"{CLINICIAN_TAG_SYSTEM}|{clinician_id}"
         bundle = fhir_client.search_resource("Patient", params)

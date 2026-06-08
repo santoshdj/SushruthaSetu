@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '@clerk/clerk-react'
+import { Country, State, City } from 'country-state-city'
 import { patientFormSchema, PatientFormValues } from '@/lib/patientSchema'
 import { apiFetchWithAuth } from '@/lib/api'
 
@@ -62,6 +63,18 @@ const EMPTY_DEFAULTS: PatientFormValues = {
   race: '', ethnicity: '', birth_sex: '',
 }
 
+// Resolve a stored country value (ISO code or legacy free-text name) to an ISO alpha-2 code.
+function resolveCountryCode(value: string | undefined): string {
+  if (!value) return ''
+  // Already a valid ISO code
+  if (Country.getCountryByCode(value)) return value
+  // Legacy free-text name — find by name
+  const match = Country.getAllCountries().find(
+    (c) => c.name.toLowerCase() === value.toLowerCase()
+  )
+  return match?.isoCode ?? ''
+}
+
 function patientToFormValues(p: any): PatientFormValues {
   return {
     first_name: p.first_name ?? '',
@@ -74,7 +87,7 @@ function patientToFormValues(p: any): PatientFormValues {
     address_city: p.address?.city ?? '',
     address_state: p.address?.state ?? '',
     address_postal_code: p.address?.postal_code ?? '',
-    address_country: p.address?.country ?? '',
+    address_country: resolveCountryCode(p.address?.country),
     marital_status: (p.marital_status ?? '') as any,
     multiple_birth: p.multiple_birth == null ? '' : p.multiple_birth ? 'true' : 'false',
     language: p.language ?? '',
@@ -126,11 +139,23 @@ export function PatientFormModal({ open, patientId, onClose, onSuccess }: Patien
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<PatientFormValues>({
     resolver: zodResolver(patientFormSchema),
     defaultValues: EMPTY_DEFAULTS,
   })
+
+  const watchedCountry = watch('address_country')
+  const watchedState = watch('address_state')
+
+  // Derive available states and cities from watched values
+  const availableStates = watchedCountry ? State.getStatesOfCountry(watchedCountry) : []
+  const watchedStateObj = availableStates.find((s) => s.name === watchedState)
+  const availableCities = watchedStateObj
+    ? City.getCitiesOfState(watchedCountry, watchedStateObj.isoCode)
+    : []
 
   useEffect(() => {
     if (!open) return
@@ -231,10 +256,35 @@ export function PatientFormModal({ open, patientId, onClose, onSuccess }: Patien
                     </Field>
                     <div className="grid grid-cols-2 gap-4">
                       <Field label="City" error={errors.address_city?.message}>
-                        <input {...register('address_city')} className={inputCls} />
+                        <select
+                          {...(() => { const { onChange, ...rest } = register('address_city'); return rest })()}
+                          value={watchedState ? (availableCities.some((c) => c.name === watch('address_city')) ? watch('address_city') : '') : watch('address_city') ?? ''}
+                          onChange={(e) => setValue('address_city', e.target.value, { shouldValidate: true })}
+                          disabled={availableCities.length === 0}
+                          className={selectCls}
+                        >
+                          <option value="">{availableCities.length === 0 ? '— select state first —' : 'Select city…'}</option>
+                          {availableCities.map((c) => (
+                            <option key={c.name} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
                       </Field>
                       <Field label="State" error={errors.address_state?.message}>
-                        <input {...register('address_state')} placeholder="e.g. MA" className={inputCls} />
+                        <select
+                          {...(() => { const { onChange, ...rest } = register('address_state'); return rest })()}
+                          value={watch('address_state') ?? ''}
+                          onChange={(e) => {
+                            setValue('address_state', e.target.value, { shouldValidate: true })
+                            setValue('address_city', '')
+                          }}
+                          disabled={availableStates.length === 0}
+                          className={selectCls}
+                        >
+                          <option value="">{availableStates.length === 0 ? '— select country first —' : 'Select state…'}</option>
+                          {availableStates.map((s) => (
+                            <option key={s.isoCode} value={s.name}>{s.name}</option>
+                          ))}
+                        </select>
                       </Field>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -242,7 +292,21 @@ export function PatientFormModal({ open, patientId, onClose, onSuccess }: Patien
                         <input {...register('address_postal_code')} className={inputCls} />
                       </Field>
                       <Field label="Country" error={errors.address_country?.message}>
-                        <input {...register('address_country')} placeholder="e.g. US" className={inputCls} />
+                        <select
+                          {...(() => { const { onChange, ...rest } = register('address_country'); return rest })()}
+                          value={watch('address_country') ?? ''}
+                          onChange={(e) => {
+                            setValue('address_country', e.target.value, { shouldValidate: true })
+                            setValue('address_state', '')
+                            setValue('address_city', '')
+                          }}
+                          className={selectCls}
+                        >
+                          <option value="">Select country…</option>
+                          {Country.getAllCountries().map((c) => (
+                            <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+                          ))}
+                        </select>
                       </Field>
                     </div>
                   </div>

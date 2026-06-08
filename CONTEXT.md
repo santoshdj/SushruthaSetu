@@ -115,3 +115,15 @@ The component that renders clinical note text with structured visual formatting 
 - All other non-empty lines → plain paragraph text
 
 `NoteBody` is read-only and display-only — it is never used for editing.
+
+## Phone Search
+
+A search mode on the Patients Page that queries the FHIR server using `Patient?telecom=<digits>` (HAPI prefix/partial match on telecom values). The phone value is normalised before querying — all non-digit characters (`+`, spaces, dashes, parens) are stripped. Mutually exclusive with **Name Search**: toggling between modes clears the other input. Degrades gracefully to `Patient?phone=<digits>` (exact token match) if the FHIR server does not support `telecom` string prefix search.
+
+## Name Search
+
+The default search mode on the Patients Page. Queries the FHIR server using `Patient?name=<value>`. Mutually exclusive with **Phone Search**.
+
+## Patient Address Dropdowns
+
+Country, State, and City fields in the **Patient Registration Form** Contact section are rendered as cascaded dropdowns backed by the `country-state-city` static dataset. Selecting a country resets State and City; selecting a state resets City. Country is stored in FHIR `address.country` as an **ISO 3166-1 alpha-2 code** (e.g. `"US"`, `"IN"`) per FHIR R4 recommendations. State is stored as the full state name (e.g. `"California"`). City is stored as the full city name. On edit read-back, free-text country names from pre-dropdown records are resolved to ISO codes via a name-to-code lookup so the dropdown pre-fills correctly.
