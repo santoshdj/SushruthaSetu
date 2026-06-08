@@ -9,11 +9,13 @@ interface Props {
   onSuggestNextSteps?: (noteText: string) => void
   appendToNote?: string | null
   onAppendConsumed?: () => void
+  suggestedFollowupDays?: number
+  currentFollowupDue?: string | null
 }
 
 const DRAFT_KEY = (patientId: string) => `visit-note-draft-${patientId}`
 
-export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, onAppendConsumed }: Props) {
+export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, onAppendConsumed, suggestedFollowupDays, currentFollowupDue }: Props) {
   const { getToken } = useAuth()
   const queryClient = useQueryClient()
   const [panelOpen, setPanelOpen] = useState(true)
@@ -24,6 +26,15 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Follow-up date — pre-fill from existing value, else today + suggestion
+  const defaultFollowupDate = (): string => {
+    if (currentFollowupDue) return currentFollowupDue
+    const d = new Date()
+    d.setDate(d.getDate() + (suggestedFollowupDays ?? 90))
+    return d.toISOString().split('T')[0]
+  }
+  const [followupDate, setFollowupDate] = useState<string>(defaultFollowupDate)
 
   // Restore draft on mount
   useEffect(() => {
@@ -101,6 +112,14 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail ?? 'Failed to save note')
+      }
+      // Fire-and-forget: persist follow-up date to FHIR
+      if (followupDate) {
+        apiFetchWithAuth(
+          `/patients/${patientId}/followup-due`,
+          getToken,
+          { method: 'PATCH', body: JSON.stringify({ followup_due: followupDate }) },
+        ).catch(() => { /* best-effort */ })
       }
       clearDraft()
       setNoteText('')
@@ -222,6 +241,21 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, on
             {saveError && (
               <span className="text-xs text-red-600">{saveError}</span>
             )}
+          </div>
+
+          {/* Follow-up date row */}
+          <div className="mt-3 flex items-center gap-2">
+            <label htmlFor={`followup-${patientId}`} className="text-xs text-gray-500 whitespace-nowrap">
+              Follow-up date:
+            </label>
+            <input
+              id={`followup-${patientId}`}
+              type="date"
+              value={followupDate}
+              onChange={e => setFollowupDate(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            <span className="text-xs text-gray-400">— saved with note</span>
           </div>
         </div>
       )}

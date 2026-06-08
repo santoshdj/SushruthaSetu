@@ -350,6 +350,7 @@ def _get_patient_profile(patient: dict) -> dict:
         "birth_sex": ext_map.get("http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex", {}).get("valueCode"),
         "mothers_maiden_name": ext_map.get("http://hl7.org/fhir/StructureDefinition/patient-mothersMaidenName", {}).get("valueString"),
         "birth_place": birth_place,
+        "followup_due": ext_map.get("patient-mgmt-app/followup-due", {}).get("valueDate"),
     }
 
 

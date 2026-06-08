@@ -13,6 +13,7 @@ type Patient = {
   prefix?: string
   gender: string
   birth_date: string
+  followup_due?: string | null
 }
 
 
@@ -144,7 +145,12 @@ export function PatientsPage() {
                       onClick={() => navigate(`/patients/${patient.id}`)}
                     >
                       <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                        {[patient.prefix, patient.first_name, patient.last_name].filter(Boolean).join(' ')}
+                        <span>{[patient.prefix, patient.first_name, patient.last_name].filter(Boolean).join(' ')}</span>
+                        {patient.followup_due && new Date(patient.followup_due) < new Date(new Date().toDateString()) && (
+                          <span className="ml-2 inline-block text-[10px] font-semibold uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                            Overdue
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 capitalize">{patient.gender}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{formatDOB(patient.birth_date)}</td>

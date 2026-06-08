@@ -22,6 +22,7 @@ interface Props {
   patientId: string
   labs: Lab[]
   vitals: Vital[]
+  followupDue?: string | null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -99,13 +100,19 @@ const labelClasses: Record<Status, string> = {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export function DiseaseControlStatusStrip({ patientId, labs, vitals }: Props) {
+export function DiseaseControlStatusStrip({ patientId, labs, vitals, followupDue }: Props) {
   const navigate = useNavigate()
   const hba1c = getHba1cStatus(labs)
   const bp    = getBpStatus(vitals)
 
+  const followupIsOverdue = followupDue ? new Date(followupDue) < new Date(new Date().toDateString()) : false
+  const followupFormatted = followupDue
+    ? new Date(followupDue + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : null
+
   return (
-    <div className="flex gap-3 mt-3 mb-1" aria-label="Disease control status">
+    <div className="mt-3 mb-1" aria-label="Disease control status">
+      <div className="flex gap-3">
 
       {/* ── HbA1c badge ─────────────────────────────────────────────────── */}
       <button
@@ -157,6 +164,20 @@ export function DiseaseControlStatusStrip({ patientId, labs, vitals }: Props) {
         </div>
       </button>
 
+      </div>
+
+      {/* Follow-up date row */}
+      {followupDue && (
+        <div className={`mt-2 flex items-center gap-2 text-xs px-1 ${
+          followupIsOverdue ? 'text-red-600' : 'text-gray-500'
+        }`}>
+          <span>{followupIsOverdue ? '🔴' : '📅'}</span>
+          <span className="font-medium">
+            {followupIsOverdue ? 'Follow-up overdue:' : 'Next visit:'}
+          </span>
+          <span>{followupFormatted}</span>
+        </div>
+      )}
     </div>
   )
 }

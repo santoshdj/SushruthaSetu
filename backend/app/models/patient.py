@@ -66,7 +66,7 @@ class PatientCreate(PatientBase):
 
 
 class PatientUpdate(PatientBase):
-    pass
+    followup_due: date | None = None
 
 
 class PatientResponse(BaseModel):
@@ -89,6 +89,12 @@ class PatientResponse(BaseModel):
     race: str | None = None
     ethnicity: str | None = None
     birth_sex: str | None = None
+    # Care management
+    followup_due: str | None = None
+
+
+class FollowupDueUpdate(BaseModel):
+    followup_due: date | None = None
 
 
 class PatientListResponse(BaseModel):

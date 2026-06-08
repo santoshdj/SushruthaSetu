@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.auth import get_current_user
-from app.models.patient import PatientCreate, PatientUpdate, PatientResponse, PatientListResponse
+from app.models.patient import PatientCreate, PatientUpdate, PatientResponse, PatientListResponse, FollowupDueUpdate
 from app.services import patient_service
 from app.services.audit import post_audit_event
 
@@ -69,3 +69,12 @@ def update_patient(
         user_name=user_name,
     )
     return result
+
+
+@router.patch("/{patient_id}/followup-due", response_model=PatientResponse)
+def update_followup_due(
+    patient_id: str,
+    data: FollowupDueUpdate,
+    _current_user: Annotated[dict, Depends(get_current_user)] = None,
+) -> PatientResponse:
+    return patient_service.update_followup_due(patient_id, data.followup_due)

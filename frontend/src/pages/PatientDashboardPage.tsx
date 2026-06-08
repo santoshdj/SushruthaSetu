@@ -61,6 +61,24 @@ export function PatientDashboardPage() {
   const highCareGapsCount: number = summary?.care_gaps?.filter((g: any) => g.severity === 'high').length ?? 0
   const hasHighAllergyRisk: boolean = summary?.allergies?.some((a: any) => a.criticality === 'high') ?? false
 
+  // ─── Follow-up date & suggested cadence ────────────────────────────────────
+  const followupDue: string | null = summary?.patient_profile?.followup_due ?? null
+
+  // Suggest 90-day follow-up for uncontrolled disease, else 180 days
+  const suggestedFollowupDays: number = (() => {
+    const labs: any[] = summary?.labs ?? []
+    const vitals: any[] = summary?.vitals ?? []
+    const hba1c = [...labs]
+      .filter((l: any) => /a1c|hba1c|hemoglobin a1c/i.test(l.code))
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+    const sys = [...vitals]
+      .filter((v: any) => /systolic/i.test(v.code))
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+    const hba1cBad = hba1c && (hba1c.value >= 7.0 || Math.floor((Date.now() - new Date(hba1c.date).getTime()) / 86400000) > 90)
+    const sysBad = sys && (sys.value >= 130 || Math.floor((Date.now() - new Date(sys.date).getTime()) / 86400000) > 90)
+    return hba1cBad || sysBad ? 90 : 180
+  })()
+
   // ─── Action Recommendations state ────────────────────────────────────────
   const [recommendations, setRecommendations] = useState<any[] | null>(null)
   const [recsLoading, setRecsLoading] = useState(false)
@@ -122,6 +140,7 @@ export function PatientDashboardPage() {
           patientId={patientId}
           labs={summary?.labs ?? []}
           vitals={summary?.vitals ?? []}
+          followupDue={followupDue}
         />
       )}
 
@@ -299,6 +318,8 @@ export function PatientDashboardPage() {
               onSuggestNextSteps={handleSuggestNextSteps}
               appendToNote={noteAppend}
               onAppendConsumed={() => setNoteAppend(null)}
+              suggestedFollowupDays={suggestedFollowupDays}
+              currentFollowupDue={followupDue}
             />
           )}
 

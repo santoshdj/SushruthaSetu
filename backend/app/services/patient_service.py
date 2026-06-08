@@ -47,6 +47,7 @@ _MANAGED_EXT_URLS = {
     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
     "http://hl7.org/fhir/StructureDefinition/patient-mothersMaidenName",
     "http://hl7.org/fhir/StructureDefinition/patient-birthPlace",
+    "patient-mgmt-app/followup-due",
 }
 
 
@@ -100,6 +101,7 @@ def _parse_patient(resource: dict) -> PatientResponse:
     birth_sex: str | None = None
     mothers_maiden_name: str | None = None
     birth_place: str | None = None
+    followup_due: str | None = None
 
     for ext in resource.get("extension", []):
         url = ext.get("url", "")
@@ -121,6 +123,8 @@ def _parse_patient(resource: dict) -> PatientResponse:
         elif url == "http://hl7.org/fhir/StructureDefinition/patient-birthPlace":
             va = ext.get("valueAddress", {})
             birth_place = va.get("text") or va.get("city") or va.get("state")
+        elif url == "patient-mgmt-app/followup-due":
+            followup_due = ext.get("valueDate")
 
     return PatientResponse(
         id=resource["id"],
@@ -139,6 +143,7 @@ def _parse_patient(resource: dict) -> PatientResponse:
         race=race,
         ethnicity=ethnicity,
         birth_sex=birth_sex,
+        followup_due=followup_due,
     )
 
 
@@ -256,6 +261,12 @@ def _apply_form_to_fhir(
             "url": "http://hl7.org/fhir/StructureDefinition/patient-birthPlace",
             "valueAddress": {"text": data.birth_place},
         })
+    followup_due = getattr(data, "followup_due", None)
+    if followup_due:
+        new_exts.append({
+            "url": "patient-mgmt-app/followup-due",
+            "valueDate": str(followup_due),
+        })
 
     all_exts = preserved + new_exts
     if all_exts:
@@ -317,4 +328,19 @@ def update_patient(patient_id: str, data: PatientUpdate) -> PatientResponse:
     existing = fhir_client.get_resource("Patient", patient_id)
     body = _apply_form_to_fhir(data, existing=existing)
     resource = fhir_client.update_resource("Patient", patient_id, body)
+    return _parse_patient(resource)
+
+
+def update_followup_due(patient_id: str, followup_due) -> PatientResponse:
+    """Surgically update only the followup-due extension on the Patient resource."""
+    existing = fhir_client.get_resource("Patient", patient_id)
+    ext_url = "patient-mgmt-app/followup-due"
+    preserved = [e for e in existing.get("extension", []) if e.get("url") != ext_url]
+    if followup_due:
+        preserved.append({"url": ext_url, "valueDate": str(followup_due)})
+    if preserved:
+        existing["extension"] = preserved
+    else:
+        existing.pop("extension", None)
+    resource = fhir_client.update_resource("Patient", patient_id, existing)
     return _parse_patient(resource)
