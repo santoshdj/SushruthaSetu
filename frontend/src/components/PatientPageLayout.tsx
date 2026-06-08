@@ -22,7 +22,7 @@ export function PatientPageLayout({
   return (
     <div className="max-w-5xl mx-auto">
       <button
-        onClick={() => navigate(`/patients/${patientId}`)}
+        onClick={() => navigate(`/patients/${patientId}`, { replace: true })}
         className="text-sm text-blue-500 hover:underline mb-4 inline-block"
       >
         ← Back to Patient Hub

@@ -7,11 +7,13 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 interface Props {
   patientId: string
   onSuggestNextSteps?: (noteText: string) => void
+  appendToNote?: string | null
+  onAppendConsumed?: () => void
 }
 
 const DRAFT_KEY = (patientId: string) => `visit-note-draft-${patientId}`
 
-export function VisitNotePanel({ patientId, onSuggestNextSteps }: Props) {
+export function VisitNotePanel({ patientId, onSuggestNextSteps, appendToNote, onAppendConsumed }: Props) {
   const { getToken } = useAuth()
   const queryClient = useQueryClient()
   const [panelOpen, setPanelOpen] = useState(true)
@@ -56,6 +58,15 @@ export function VisitNotePanel({ patientId, onSuggestNextSteps }: Props) {
   const handleResult = (finalChunk: string) => {
     setNoteText(prev => prev + (prev && !prev.endsWith(' ') ? ' ' : '') + finalChunk)
   }
+
+  // Append an Order Block when ActionRecommendationsCard fires onAddToNote
+  useEffect(() => {
+    if (appendToNote) {
+      setNoteText(prev => prev + (prev ? '\n' : '') + appendToNote)
+      onAppendConsumed?.()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appendToNote])
 
   const handleInterim = (interim: string) => {
     setInterimText(interim)

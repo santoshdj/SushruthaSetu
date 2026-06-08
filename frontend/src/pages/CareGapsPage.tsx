@@ -37,6 +37,14 @@ export function CareGapsPage() {
               <div>
                 <p className="text-sm font-medium text-gray-800">{g.label}</p>
                 {g.rationale && <p className="text-sm text-gray-500 mt-0.5">{g.rationale}</p>}
+                {g.guideline_citation && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    <span className="inline-block bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 font-semibold mr-1">
+                      {g.guideline_citation.source}
+                    </span>
+                    {g.guideline_citation.text}
+                  </p>
+                )}
               </div>
             </li>
           ))}

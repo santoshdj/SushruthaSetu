@@ -1,14 +1,21 @@
+interface GuidelineCitation {
+  source: string
+  text: string
+}
+
 interface Recommendation {
   category: 'Medications' | 'Lab Tests' | 'Referrals' | 'Follow-up' | 'Patient Education'
   action: string
   urgency: 'routine' | 'urgent' | 'critical'
   rationale: string
+  guideline_citation?: GuidelineCitation
 }
 
 interface Props {
   recommendations: Recommendation[] | null
   isLoading: boolean
   error: string | null
+  onAddToNote?: (orderBlock: string) => void
 }
 
 const CATEGORY_ORDER = ['Medications', 'Lab Tests', 'Referrals', 'Follow-up', 'Patient Education']
@@ -19,7 +26,7 @@ const URGENCY_STYLES: Record<string, string> = {
   routine: 'bg-gray-100 text-gray-600',
 }
 
-export function ActionRecommendationsCard({ recommendations, isLoading, error }: Props) {
+export function ActionRecommendationsCard({ recommendations, isLoading, error, onAddToNote }: Props) {
   // Hidden until there's something to show
   if (!isLoading && !error && !recommendations) return null
 
@@ -85,10 +92,30 @@ export function ActionRecommendationsCard({ recommendations, isLoading, error }:
                       >
                         {rec.urgency}
                       </span>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-800">{rec.action}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{rec.rationale}</p>
+                        {rec.guideline_citation && (
+                          <p className="text-xs text-indigo-600 mt-1">
+                            <span className="inline-block bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 font-semibold mr-1">
+                              {rec.guideline_citation.source}
+                            </span>
+                            {rec.guideline_citation.text}
+                          </p>
+                        )}
                       </div>
+                      {onAddToNote && (rec.category === 'Lab Tests' || rec.category === 'Follow-up') && (
+                        <button
+                          onClick={() => {
+                            const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            onAddToNote(`→ Order: ${rec.action}\n   Reason: ${rec.rationale}\n   Date: ${today}`)
+                          }}
+                          className="shrink-0 text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 rounded px-2 py-1 transition-colors"
+                          title="Append to current visit note"
+                        >
+                          + Add to note
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

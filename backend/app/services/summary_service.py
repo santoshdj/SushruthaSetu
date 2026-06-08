@@ -272,7 +272,7 @@ def _run_care_gap_rules(aggregate: dict) -> list[dict]:
         ]
         if not hba1c_labs or (today - date.fromisoformat(hba1c_labs[0]["date"][:10])) > timedelta(days=90):
             last = hba1c_labs[0]["date"][:10] if hba1c_labs else "never"
-            gaps.append({"label": "HbA1c overdue", "severity": "high", "rationale": f"Diabetic patient — last HbA1c: {last}"})
+            gaps.append({"label": "HbA1c overdue", "severity": "high", "rationale": f"Diabetic patient — last HbA1c: {last}", "guideline_citation": {"source": "ADA 2024", "text": "HbA1c should be measured every 3 months when uncontrolled (>8%) or every 6 months when at goal."}})
 
     # Rule 2: Flu vaccine missing (no immunization this season)
     current_year = today.year
@@ -283,14 +283,14 @@ def _run_care_gap_rules(aggregate: dict) -> list[dict]:
         and i.get("date") and date.fromisoformat(i["date"][:10]) >= season_start
     ]
     if not flu_vaccines:
-        gaps.append({"label": "Annual flu vaccine missing", "severity": "medium", "rationale": f"No influenza immunization recorded since {season_start}"})
+        gaps.append({"label": "Annual flu vaccine missing", "severity": "medium", "rationale": f"No influenza immunization recorded since {season_start}", "guideline_citation": {"source": "CDC/ACIP", "text": "Annual influenza vaccination is recommended for all adults, especially those with chronic conditions such as diabetes."}})
 
     # Rule 3: Elevated BP with no follow-up
     bp_obs = [v for v in aggregate["vitals"] if "systolic" in (v.get("code") or "").lower() or "blood pressure" in (v.get("code") or "").lower()]
     if bp_obs and bp_obs[0].get("value") and float(bp_obs[0]["value"]) > 140:
         last_encounter = aggregate["visit_history"][0]["date"][:10] if aggregate["visit_history"] else None
         if not last_encounter or (today - date.fromisoformat(last_encounter)) > timedelta(days=30):
-            gaps.append({"label": "Elevated BP — no recent follow-up", "severity": "high", "rationale": f"Last systolic: {bp_obs[0]['value']} mmHg. No encounter in last 30 days."})
+            gaps.append({"label": "Elevated BP — no recent follow-up", "severity": "high", "rationale": f"Last systolic: {bp_obs[0]['value']} mmHg. No encounter in last 30 days.", "guideline_citation": {"source": "AHA/ACC 2017", "text": "Stage 2 hypertension (systolic ≥140 mmHg) requires re-evaluation within 1 month of diagnosis or medication initiation."}})
 
     return gaps
 

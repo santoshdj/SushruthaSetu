@@ -6,6 +6,7 @@ import { apiFetchWithAuth } from '@/lib/api'
 import { VisitNotePanel } from '@/components/VisitNotePanel'
 import { ActionRecommendationsCard } from '@/components/ActionRecommendationsCard'
 import { PatientIdentityStrip } from '@/components/PatientIdentityStrip'
+import { DiseaseControlStatusStrip } from '@/components/DiseaseControlStatusStrip'
 
 // ─── PatientDashboardPage (Patient Hub) ─────────────────────────────────────
 export function PatientDashboardPage() {
@@ -65,6 +66,9 @@ export function PatientDashboardPage() {
   const [recsLoading, setRecsLoading] = useState(false)
   const [recsError, setRecsError] = useState<string | null>(null)
 
+  // ─── Order Block append state (bridges ActionRecommendationsCard → VisitNotePanel) ─
+  const [noteAppend, setNoteAppend] = useState<string | null>(null)
+
   const handleSuggestNextSteps = async (noteText: string) => {
     if (!patientId || !noteText.trim()) return
     setRecsLoading(true)
@@ -111,6 +115,15 @@ export function PatientDashboardPage() {
 
       {/* Patient Identity Strip */}
       {patientId && <PatientIdentityStrip patientId={patientId} />}
+
+      {/* Disease Control Status Strip — HbA1c + BP at a glance */}
+      {patientId && (
+        <DiseaseControlStatusStrip
+          patientId={patientId}
+          labs={summary?.labs ?? []}
+          vitals={summary?.vitals ?? []}
+        />
+      )}
 
       <div className="mt-4 flex gap-6 items-start">
         {/* ── Left column — sticky ─────────────────────────────────── */}
@@ -284,6 +297,8 @@ export function PatientDashboardPage() {
             <VisitNotePanel
               patientId={patientId}
               onSuggestNextSteps={handleSuggestNextSteps}
+              appendToNote={noteAppend}
+              onAppendConsumed={() => setNoteAppend(null)}
             />
           )}
 
@@ -292,6 +307,7 @@ export function PatientDashboardPage() {
             recommendations={recommendations}
             isLoading={recsLoading}
             error={recsError}
+            onAddToNote={(block) => setNoteAppend(block)}
           />
 
         </div>
