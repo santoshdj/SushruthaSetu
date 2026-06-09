@@ -173,6 +173,62 @@ Country, State, and City fields in the **Patient Registration Form** Contact sec
 
 A date stored as a FHIR extension on the Patient resource (`url: "patient-mgmt-app/followup-due"`) that records when the patient's next visit is expected. Set by the clinician at the end of an encounter via a date picker in the Visit Note panel; pre-filled based on Disease Control Status (uncontrolled → +3 months, controlled → +6 months) but always editable. Displayed in the Disease Control Status Strip on the Patient Hub and as an "Overdue" badge on the Patients list when the date has passed and no newer Visit Note exists.
 
+## Panel Risk Score
+
+A computed urgency tier assigned to each patient at panel-load time, derived from existing Disease Control Status and Care Gap signals. Three tiers:
+
+- **High** — any Disease Control Status marker is red (HbA1c > 8% or systolic BP > 140 mmHg or reading > 90 days old) **OR** any open Care Gap has severity `high`
+- **Medium** — any marker is amber (HbA1c 7–8%, BP 130–140/80–90) **OR** any open Care Gap has severity `medium`, and no red condition is met
+- **Low** — all markers green and no open care gaps
+
+The Panel Risk Score is never stored — it is recomputed on each panel load from the patient's latest labs, vitals, and care gaps. The **Patient Panel** sorts patients **High → Medium → Low** by default.
+
+## Panel Data Endpoint
+
+`GET /api/patients/panel` — a dedicated endpoint that returns a panel-ready payload for all patients owned by the authenticated clinician. The backend fetches each patient's labs, vitals, and care gaps in parallel, runs **Panel Risk Score** logic server-side, and returns a single response. The frontend never calls `/summary` for panel display.
+
+**Response shape per patient:**
+```json
+{
+  "id": "string",
+  "name": "string",
+  "dob": "string",
+  "gender": "string",
+  "followup_due": "string | null",
+  "risk_score": "high | medium | low",
+  "open_care_gap_count": 2,
+  "care_gaps": [{ "description": "...", "severity": "high | medium | low" }]
+}
+```
+
+Patients are returned sorted **high → medium → low** risk, then by `followup_due` ascending within each tier.
+
+## Panel Follow-up Scheduling
+
+An inline action on a **Patient Panel** row that lets the clinician set or update a patient's **Follow-up Due Date** without navigating away from the panel. Clicking "Schedule Follow-up" expands a compact date picker within the patient row. Saving calls the existing `PATCH /api/patients/:id/followup-due` endpoint and updates the panel row in place.
+
+Distinct from the follow-up date picker in the **Visit Note panel** on the **Patient Hub**: that picker is shown during an active encounter; the Panel Follow-up Scheduling action is used between encounters when reviewing the panel.
+
+## Panel Lab Order
+
+An action triggered from the **Patient Panel** when the clinician clicks "Order Labs" on a patient row. Pre-populates a **Draft Note** for that patient with a pre-filled **Order Block** derived from any open Lab Test **Care Gaps**, then navigates to that patient's **Patient Hub**. The clinician reviews and edits the draft in the Visit Note panel before saving — identical flow to "Add to note" on an **Action Recommendation**.
+
+No new FHIR resources are created. The order exists only as text within the saved Visit Note.
+
+## Outreach Message
+
+A short AI-generated plain-language message (1–2 paragraphs) produced on demand from the Patient Panel when a clinician clicks the outreach action on a patient row. Intended to be copied and pasted into an external communication tool (patient portal, EHR messaging, etc.) — the app does not send it. Content is derived from the patient's open Care Gaps and Panel Risk Score; no PHI appears in the generated text visible to the user in transit.
+
+**Trigger:** "Outreach" button on a Patient Panel row. Calls `POST /api/patients/:id/generate-outreach-message`. Opens a read-only modal with a copy-to-clipboard button. The message is **never saved** to FHIR.
+
+**Distinct from Post-Visit Patient Report:** a Post-Visit Patient Report summarises a completed encounter and is saved to the longitudinal record. An Outreach Message is a proactive reminder generated between visits and is ephemeral.
+
+## Patient Panel
+
+A population-level view of **all patients assigned to the authenticated clinician**, surfaced at `/panel`. Distinct from and parallel to the **Patients Page** — the Patients Page is a lookup tool (search by name or phone); the Patient Panel is an unsolicited, urgency-sorted view designed to answer the question *"who needs attention today?"* without requiring the clinician to already know who to search for.
+
+Patients are grouped and sorted by **Panel Risk Score** and displayed with their open Care Gaps. The panel is the entry point for proactive outreach, lab ordering, and follow-up scheduling actions — see **Panel Risk Score**, **Outreach**, **Panel Lab Order**, and **Follow-up Scheduling**.
+
 ## Post-Visit Patient Report
 
 A plain-language summary of an encounter generated by AI from the saved Visit Note, any Order Blocks appended during the visit, the current medications list, and the Follow-up Due Date. Reviewed and approved by the clinician before being stored permanently in FHIR — no email delivery.

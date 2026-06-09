@@ -18,6 +18,7 @@ import { VisitHistoryPage } from '@/pages/VisitHistoryPage'
 import { ImmunizationsPage } from '@/pages/ImmunizationsPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { EventsPage } from '@/pages/EventsPage'
+import { PanelPage } from '@/pages/PanelPage'
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<SchedulePage />} />
+        <Route path="/panel" element={<PanelPage />} />
         <Route path="/patients" element={<PatientsPage />} />
         <Route path="/patients/:patientId" element={<PatientDashboardPage />} />
         <Route path="/patients/:patientId/profile" element={<PatientProfilePage />} />

@@ -9,6 +9,7 @@ export function NavBar() {
 
   const navItems = [
     { label: 'Schedule', to: '/' },
+    { label: 'Panel', to: '/panel' },
     { label: 'Patients', to: '/patients' },
     ...(role === 'clinician_admin' ? [{ label: 'Events', to: '/events' }] : []),
   ]

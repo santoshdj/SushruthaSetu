@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.auth import get_current_user
 from app.models.patient import PatientCreate, PatientUpdate, PatientResponse, PatientListResponse, FollowupDueUpdate
-from app.services import patient_service
+from app.services import patient_service, panel_service, outreach_service
 from app.services.audit import post_audit_event
 
 router = APIRouter(prefix="/patients", tags=["Patients"])
@@ -20,6 +20,24 @@ def list_patients(
     role = (current_user or {}).get("publicMetadata", {}).get("role", "clinician_user")
     clinician_id = None if role == "clinician_admin" else (current_user or {}).get("sub")
     return patient_service.list_patients(name=name, phone=phone, page_token=page_token, clinician_id=clinician_id)
+
+
+@router.get("/panel")
+def get_panel(
+    current_user: Annotated[dict, Depends(get_current_user)] = None,
+) -> list:
+    role = (current_user or {}).get("publicMetadata", {}).get("role", "clinician_user")
+    clinician_id = None if role == "clinician_admin" else (current_user or {}).get("sub")
+    return panel_service.get_panel(clinician_id=clinician_id)
+
+
+@router.post("/{patient_id}/generate-outreach-message")
+def generate_outreach_message(
+    patient_id: str,
+    _current_user: Annotated[dict, Depends(get_current_user)] = None,
+) -> dict:
+    text = outreach_service.generate_outreach_message(patient_id)
+    return {"text": text}
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
