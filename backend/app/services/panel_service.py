@@ -178,4 +178,9 @@ def get_panel(clinician_id: str | None = None) -> list[dict]:
             p["followup_due"] or "9999-99-99",
         )
     )
-    return results
+
+    # Only surface patients who need action — hide low-risk with no open care gaps
+    return [
+        p for p in results
+        if p["risk_score"] in ("high", "medium") or p["open_care_gap_count"] > 0
+    ]

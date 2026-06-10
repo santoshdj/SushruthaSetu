@@ -8,7 +8,7 @@ export function NavBar() {
   const role = useUserRole()
 
   const navItems = [
-    { label: 'Schedule', to: '/' },
+    { label: 'Schedule', to: '/schedule' },
     { label: 'Panel', to: '/panel' },
     { label: 'Patients', to: '/patients' },
     ...(role === 'clinician_admin' ? [{ label: 'Events', to: '/events' }] : []),

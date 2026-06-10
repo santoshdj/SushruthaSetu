@@ -40,7 +40,8 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<SchedulePage />} />
+        <Route path="/" element={<Navigate to="/panel" replace />} />
+        <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/panel" element={<PanelPage />} />
         <Route path="/patients" element={<PatientsPage />} />
         <Route path="/patients/:patientId" element={<PatientDashboardPage />} />
